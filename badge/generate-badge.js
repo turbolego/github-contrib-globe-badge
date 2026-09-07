@@ -1,9 +1,5 @@
 import fs from 'fs';
 import https from 'https';
-import cobe from 'cobe';
-import { createCanvas } from 'canvas';
-
-const createGlobe = cobe.default;
 
 function fetchJSON(url, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -50,20 +46,32 @@ async function geocode(loc) {
 
 function buildSvg(markers) {
   const size = 520;
-  const canvas = createCanvas(size, size);
-  const globe = createGlobe(canvas, {
-    devicePixelRatio: 2,
-    width: size,
-    height: size,
-    markers,
-    dark: 0,
-    baseColor: [0.13, 0.13, 0.13],
-    markerColor: [0.9, 0.7, 0.2],
-  });
-  globe.render();
-  const svg = canvas.toBuffer('image/svg+xml').toString();
-  globe.destroy();
-  return svg;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 238;
+  const project = ([lat, lon]) => [
+    cx + (lon / 180) * radius,
+    cy - (lat / 90) * radius * 0.5,
+  ];
+  const markerSvg = markers.map((location) => {
+    const [x, y] = project(location);
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5" fill="#e6b233"/>`;
+  }).join('');
+  const longitudeLines = [-120, -60, 0, 60, 120].map((lon) => {
+    const x = cx + (lon / 180) * radius;
+    return `<path d="M ${x.toFixed(2)} ${cy - radius * 0.5} Q ${cx} ${cy} ${x.toFixed(2)} ${cy + radius * 0.5}"/>`;
+  }).join('');
+  const latitudeLines = [-60, -30, 0, 30, 60].map((lat) => {
+    const y = cy - (lat / 90) * radius * 0.5;
+    return `<ellipse cx="${cx}" cy="${y.toFixed(2)}" rx="${radius}" ry="${(radius * 0.18).toFixed(2)}"/>`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <defs><radialGradient id="globe"><stop offset="0" stop-color="#3f3f3f"/><stop offset="1" stop-color="#151515"/></radialGradient><clipPath id="clip"><circle cx="${cx}" cy="${cy}" r="${radius}"/></clipPath></defs>
+  <rect width="100%" height="100%" fill="#0d1117"/>
+  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="url(#globe)" stroke="#666" stroke-width="3"/>
+  <g clip-path="url(#clip)" fill="none" stroke="#777" stroke-opacity=".38" stroke-width="1">${longitudeLines}${latitudeLines}</g>
+  <g>${markerSvg}</g>
+</svg>`;
 }
 
 (async () => {
@@ -78,7 +86,6 @@ function buildSvg(markers) {
     const geo = await geocode(loc);
     if (geo) markers.push(geo);
   }
-  const svg = buildSvg(markers);
-  fs.writeFileSync('badge.svg', svg);
+  fs.writeFileSync('badge.svg', buildSvg(markers));
   console.log('\u2705 badge.svg written –', markers.length, 'markers');
 })();
