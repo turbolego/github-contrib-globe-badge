@@ -244,6 +244,12 @@ async function main() {
     if (location) markers.push({ owner, commits, location });
   }
   const geojson = await fetchJSON(WORLD_GEOJSON_URL, { 'User-Agent': 'cobe-github-profile-badge/1.0' });
+  fs.writeFileSync('data.json', JSON.stringify({
+    user: USER,
+    generatedAt: new Date().toISOString(),
+    totalCommits: total,
+    markers,
+  }, null, 2));
   fs.writeFileSync('badge.svg', buildSvg(buildLandMap(geojson), markers, total || 1));
   console.log(`✅ badge.svg written – ${markers.length} locations, ${total} commits`);
 }
