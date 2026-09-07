@@ -1,91 +1,206 @@
 import fs from 'fs';
 import https from 'https';
 
-function fetchJSON(url, headers = {}) {
+const USER = process.env.GITHUB_ACTOR || 'kveita';
+const SIZE = 520;
+const CX = SIZE / 2;
+const CY = SIZE / 2;
+const RADIUS = 238;
+const WORLD_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+
+function fetchJSONOnce(url, headers = {}) {
   return new Promise((resolve, reject) => {
     https.get(url, { headers }, (res) => {
       let data = '';
-      res.on('data', (c) => (data += c));
+      res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`GET ${url} returned ${res.statusCode}`));
+          return;
+        }
         try { resolve(JSON.parse(data)); }
-        catch (e) { reject(e); }
+        catch (error) { reject(error); }
       });
     }).on('error', reject);
   });
 }
 
-async function getContributedRepos(user) {
-  const url = `https://api.github.com/search/commits?q=author:${user}+author-date:>2023-01-01&per_page=100`;
-  const data = await fetchJSON(url, {
-    Accept: 'application/vnd.github.cloak-preview+json',
-    'User-Agent': 'cobe-badge-gen',
-  });
-  const set = new Set();
-  for (const item of data.items || []) set.add(item.repository.full_name);
-  return [...set];
+async function fetchJSON(url, headers = {}) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await fetchJSONOnce(url, headers);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
+function githubHeaders() {
+  return {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'cobe-github-profile-badge',
+  };
+}
+
+async function getContributions(user) {
+  const counts = new Map();
+  let total = 0;
+
+  for (let page = 1; page <= 3; page += 1) {
+    const q = encodeURIComponent(`author:${user} author-date:>2023-01-01`);
+    let data;
+    try {
+      data = await fetchJSON(
+        `https://api.github.com/search/commits?q=${q}&per_page=100&page=${page}`,
+        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
+      );
+    } catch (error) {
+      if (page === 1) throw error;
+      console.warn(`Stopping commit pagination at page ${page}: ${error.message}`);
+      break;
+    }
+    const items = data.items || [];
+    for (const item of items) {
+      const fullName = item.repository?.full_name;
+      if (!fullName) continue;
+      const owner = fullName.split('/')[0];
+      if (owner === user) continue;
+      counts.set(owner, (counts.get(owner) || 0) + 1);
+      total += 1;
+    }
+    if (items.length < 100) break;
+  }
+
+  return { counts, total };
 }
 
 async function getOwnerLocation(owner) {
-  const usr = await fetchJSON(`https://api.github.com/users/${owner}`, {
-    'User-Agent': 'cobe-badge-gen',
-    Accept: 'application/vnd.github+json',
-  });
-  return usr.location || null;
+  const user = await fetchJSON(`https://api.github.com/users/${encodeURIComponent(owner)}`, githubHeaders());
+  return user.location || null;
 }
 
-async function geocode(loc) {
-  if (!loc) return null;
-  const q = encodeURIComponent(loc);
-  const res = await fetchJSON(
-    `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`,
-    { 'User-Agent': 'cobe-badge-gen/1.0' }
+async function geocode(location) {
+  if (!location) return null;
+  const result = await fetchJSON(
+    `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`,
+    { 'User-Agent': 'cobe-github-profile-badge/1.0' },
   );
-  if (!res[0]) return null;
-  return [+res[0].lat, +res[0].lon];
+  if (!result[0]) return null;
+  return [+result[0].lat, +result[0].lon];
 }
 
-function buildSvg(markers) {
-  const size = 520;
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = 238;
-  const project = ([lat, lon]) => [
-    cx + (lon / 180) * radius,
-    cy - (lat / 90) * radius * 0.5,
-  ];
-  const markerSvg = markers.map((location) => {
-    const [x, y] = project(location);
-    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5" fill="#e6b233"/>`;
-  }).join('');
-  const longitudeLines = [-120, -60, 0, 60, 120].map((lon) => {
-    const x = cx + (lon / 180) * radius;
-    return `<path d="M ${x.toFixed(2)} ${cy - radius * 0.5} Q ${cx} ${cy} ${x.toFixed(2)} ${cy + radius * 0.5}"/>`;
-  }).join('');
-  const latitudeLines = [-60, -30, 0, 30, 60].map((lat) => {
-    const y = cy - (lat / 90) * radius * 0.5;
-    return `<ellipse cx="${cx}" cy="${y.toFixed(2)}" rx="${radius}" ry="${(radius * 0.18).toFixed(2)}"/>`;
-  }).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <defs><radialGradient id="globe"><stop offset="0" stop-color="#3f3f3f"/><stop offset="1" stop-color="#151515"/></radialGradient><clipPath id="clip"><circle cx="${cx}" cy="${cy}" r="${radius}"/></clipPath></defs>
-  <rect width="100%" height="100%" fill="#0d1117"/>
-  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="url(#globe)" stroke="#666" stroke-width="3"/>
-  <g clip-path="url(#clip)" fill="none" stroke="#777" stroke-opacity=".38" stroke-width="1">${longitudeLines}${latitudeLines}</g>
-  <g>${markerSvg}</g>
+function pointInRing(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i += 1) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersects = ((yi > lat) !== (yj > lat))
+      && (lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInGeometry(lon, lat, geometry) {
+  if (!geometry) return false;
+  if (geometry.type === 'Polygon') {
+    return pointInRing(lon, lat, geometry.coordinates[0])
+      && !geometry.coordinates.slice(1).some((ring) => pointInRing(lon, lat, ring));
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.some((polygon) => (
+      pointInRing(lon, lat, polygon[0])
+      && !polygon.slice(1).some((ring) => pointInRing(lon, lat, ring))
+    ));
+  }
+  return false;
+}
+
+function project(lat, lon) {
+  const latRad = (lat * Math.PI) / 180;
+  const lonRad = (lon * Math.PI) / 180;
+  const centerLon = 0;
+  const centerLat = 12 * Math.PI / 180;
+  const cosLat = Math.cos(latRad);
+  const x = Math.cos(latRad) * Math.sin(lonRad - centerLon);
+  const y = Math.cos(centerLat) * Math.sin(latRad) - Math.sin(centerLat) * cosLat * Math.cos(lonRad - centerLon);
+  const z = Math.sin(centerLat) * Math.sin(latRad) + Math.cos(centerLat) * cosLat * Math.cos(lonRad - centerLon);
+  if (z < 0) return null;
+  return [CX + x * RADIUS, CY - y * RADIUS, z];
+}
+
+function buildLandDots(geojson) {
+  const features = geojson.features || [];
+  const dots = [];
+  const spacing = 4.2;
+  for (let lat = -84; lat <= 84; lat += spacing) {
+    for (let lon = -180; lon < 180; lon += spacing) {
+      if (!features.some((feature) => pointInGeometry(lon, lat, feature.geometry))) continue;
+      const point = project(lat, lon);
+      if (point) dots.push(`<circle cx="${point[0].toFixed(1)}" cy="${point[1].toFixed(1)}" r="1.15"/>`);
+    }
+  }
+  return dots.join('');
+}
+
+function buildMarker(label, location, commits, percentage) {
+  const point = project(...location);
+  if (!point) return '';
+  const [x, y] = point;
+  const boxWidth = 98;
+  const boxHeight = 34;
+  const boxX = Math.max(8, Math.min(SIZE - boxWidth - 8, x - boxWidth / 2));
+  const boxY = Math.max(8, y - 48);
+  const safeLabel = label.replace(/[&<>"']/g, '');
+  return `<g>
+    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
+    <rect x="${boxX.toFixed(1)}" y="${boxY.toFixed(1)}" width="${boxWidth}" height="${boxHeight}" rx="7" fill="#171717" opacity=".94"/>
+    <text x="${(boxX + 10).toFixed(1)}" y="${(boxY + 22).toFixed(1)}" fill="#fff" font-family="monospace" font-size="16" font-weight="700">${commits}</text>
+    <text x="${(boxX + 57).toFixed(1)}" y="${(boxY + 21).toFixed(1)}" fill="#34d399" font-family="monospace" font-size="11">↑ ${percentage}%</text>
+    <title>${safeLabel}: ${commits} commits (${percentage}%)</title>
+  </g>`;
+}
+
+function buildSvg(landDots, markers, total) {
+  const markerSvg = markers.map((marker) => buildMarker(
+    marker.owner,
+    marker.location,
+    marker.commits,
+    Math.round((marker.commits / total) * 100),
+  )).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" role="img" aria-label="GitHub contribution analytics globe">
+  <defs>
+    <radialGradient id="ocean" cx="42%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".86" stop-color="#f3f4f6"/><stop offset="1" stop-color="#d1d5db"/></radialGradient>
+    <filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter>
+    <clipPath id="globe-clip"><circle cx="${CX}" cy="${CY}" r="${RADIUS}"/></clipPath>
+  </defs>
+  <rect width="100%" height="100%" fill="#fff"/>
+  <circle cx="${CX + 4}" cy="${CY + 8}" r="${RADIUS}" fill="#9ca3af" opacity=".2" filter="url(#shadow)"/>
+  <circle cx="${CX}" cy="${CY}" r="${RADIUS}" fill="url(#ocean)" stroke="#e5e7eb" stroke-width="3"/>
+  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9">${landDots}</g>
+  ${markerSvg}
 </svg>`;
 }
 
-(async () => {
-  const USER = process.env.GITHUB_ACTOR || 'kveita';
-  const repos = await getContributedRepos(USER);
-  const owners = new Set(
-    repos.map((r) => r.split('/')[0]).filter((o) => o !== USER)
-  );
+async function main() {
+  const { counts, total } = await getContributions(USER);
+  const owners = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  console.log(`Found ${total} commits across ${counts.size} owners`);
   const markers = [];
-  for (const owner of owners) {
-    const loc = await getOwnerLocation(owner);
-    const geo = await geocode(loc);
-    if (geo) markers.push(geo);
+  for (const [owner, commits] of owners) {
+    const location = await getOwnerLocation(owner).then(geocode);
+    console.log(`Located ${owner}: ${location ? location.join(', ') : 'unknown'}`);
+    if (location) markers.push({ owner, commits, location });
   }
-  fs.writeFileSync('badge.svg', buildSvg(markers));
-  console.log('\u2705 badge.svg written –', markers.length, 'markers');
-})();
+  const geojson = await fetchJSON(WORLD_GEOJSON_URL, { 'User-Agent': 'cobe-github-profile-badge/1.0' });
+  fs.writeFileSync('badge.svg', buildSvg(buildLandDots(geojson), markers, total || 1));
+  console.log(`✅ badge.svg written – ${markers.length} locations, ${total} commits`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
