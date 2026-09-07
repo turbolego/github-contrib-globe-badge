@@ -1,6 +1,6 @@
 {
   "user": "turbolego",
-  "generatedAt": "2026-09-07T11:38:21.873Z",
+  "generatedAt": "2026-09-07T12:33:54.370Z",
   "totalCommits": 19,
   "markers": [
     {
@@ -9,6 +9,12 @@
       "location": [
         28.3347722,
         -10.3713379
+      ],
+      "repositories": [
+        {
+          "name": "HermesUnchained",
+          "url": "https://github.com/xDweeb/HermesUnchained"
+        }
       ]
     },
     {
@@ -17,6 +23,12 @@
       "location": [
         37.8044557,
         -122.271356
+      ],
+      "repositories": [
+        {
+          "name": "authsite",
+          "url": "https://github.com/progrium/authsite"
+        }
       ]
     },
     {
@@ -25,6 +37,12 @@
       "location": [
         38.7077507,
         -9.1365919
+      ],
+      "repositories": [
+        {
+          "name": "qualweb",
+          "url": "https://github.com/qualweb/qualweb"
+        }
       ]
     },
     {
@@ -33,6 +51,12 @@
       "location": [
         42.2885656,
         18.8419505
+      ],
+      "repositories": [
+        {
+          "name": "fang-upgrade",
+          "url": "https://github.com/kyzdes/fang-upgrade"
+        }
       ]
     },
     {
@@ -41,6 +65,12 @@
       "location": [
         59.9133301,
         10.7389701
+      ],
+      "repositories": [
+        {
+          "name": "EEGBliss",
+          "url": "https://github.com/TurboDevsAS/EEGBliss"
+        }
       ]
     }
   ]
