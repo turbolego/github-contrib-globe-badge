@@ -153,12 +153,40 @@ function geometryToPath(geometry) {
   return '';
 }
 
+function landPolygons(geojson) {
+  const polygons = [];
+  for (const feature of geojson.features || []) {
+    const geometry = feature.geometry;
+    const groups = geometry?.type === 'Polygon'
+      ? [geometry.coordinates]
+      : geometry?.type === 'MultiPolygon' ? geometry.coordinates : [];
+    for (const polygon of groups) {
+      const ring = polygon[0];
+      const lons = ring.map(([lon]) => lon);
+      const lats = ring.map(([, lat]) => lat);
+      polygons.push({
+        polygon,
+        minLon: Math.min(...lons),
+        maxLon: Math.max(...lons),
+        minLat: Math.min(...lats),
+        maxLat: Math.max(...lats),
+      });
+    }
+  }
+  return polygons;
+}
+
 function buildLandMap(geojson) {
-  const features = geojson.features || [];
+  const polygons = landPolygons(geojson);
   const dots = [];
   for (let lat = -84; lat <= 84; lat += 2.8) {
     for (let lon = -180; lon < 180; lon += 2.8) {
-      if (!features.some((feature) => pointInGeometry(lon, lat, feature.geometry))) continue;
+      const land = polygons.some(({ polygon, minLon, maxLon, minLat, maxLat }) => (
+        lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat
+        && pointInRing(lon, lat, polygon[0])
+        && !polygon.slice(1).some((ring) => pointInRing(lon, lat, ring))
+      ));
+      if (!land) continue;
       const point = project(lat, lon);
       if (point) dots.push(`<circle cx="${point[0].toFixed(1)}" cy="${point[1].toFixed(1)}" r="1.15"/>`);
     }
