@@ -1,7 +1,9 @@
 import fs from 'fs';
 import https from 'https';
-import createGlobe from 'cobe';
+import cobe from 'cobe';
 import { createCanvas } from 'canvas';
+
+const createGlobe = cobe.default;
 
 function fetchJSON(url, headers = {}) {
   return new Promise((resolve, reject) => {
