@@ -26,6 +26,7 @@ jobs:
       - name: Generate badge.svg
         env:
           GITHUB_ACTOR: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node badge/generate-badge.js
       - name: Commit badge.svg
         uses: stefanzweifel/git-auto-commit-action@v5
