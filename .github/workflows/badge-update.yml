@@ -12,25 +12,25 @@ jobs:
   build-badge:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - name: Install system dependencies for canvas
         run: |
           sudo apt-get update -y
           sudo apt-get install -y pkg-config libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
       - name: Set up Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
       - name: Install dependencies
         run: npm install
-      - name: Generate badge.svg
+      - name: Generate badge.svg and data.json
         env:
           GITHUB_ACTOR: ${{ github.repository_owner }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node badge/generate-badge.js
-      - name: Commit badge.svg
-        uses: stefanzweifel/git-auto-commit-action@v7
+      - name: Commit badge and analytics data
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Update cobe profile badge"
-          file_pattern: badge.svg
+          commit_message: "💖 Update cobe profile badge data"
+          file_pattern: 'badge.svg data.json'
           branch: main
