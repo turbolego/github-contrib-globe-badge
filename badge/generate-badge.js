@@ -95,7 +95,7 @@ async function geocode(location) {
 
 function pointInRing(lon, lat, ring) {
   let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i += 1) {
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i];
     const [xj, yj] = ring[j];
     const intersects = ((yi > lat) !== (yj > lat))
@@ -154,15 +154,16 @@ function geometryToPath(geometry) {
 }
 
 function buildLandMap(geojson) {
-  const paths = (geojson.features || []).map((feature) => geometryToPath(feature.geometry)).join(' ');
+  const features = geojson.features || [];
   const dots = [];
-  for (let lat = -84; lat <= 84; lat += 3.8) {
-    for (let lon = -180; lon < 180; lon += 3.8) {
-      const [x, y] = equirectangularPoint([lon, lat]);
-      dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.15"/>`);
+  for (let lat = -84; lat <= 84; lat += 2.8) {
+    for (let lon = -180; lon < 180; lon += 2.8) {
+      if (!features.some((feature) => pointInGeometry(lon, lat, feature.geometry))) continue;
+      const point = project(lat, lon);
+      if (point) dots.push(`<circle cx="${point[0].toFixed(1)}" cy="${point[1].toFixed(1)}" r="1.15"/>`);
     }
   }
-  return { paths, dots: dots.join('') };
+  return dots.join('');
 }
 
 function buildMarker(label, location, commits, percentage) {
@@ -183,7 +184,7 @@ function buildMarker(label, location, commits, percentage) {
   </g>`;
 }
 
-function buildSvg(landMap, markers, total) {
+function buildSvg(landDots, markers, total) {
   const markerSvg = markers.map((marker) => buildMarker(
     marker.owner,
     marker.location,
@@ -195,12 +196,11 @@ function buildSvg(landMap, markers, total) {
     <radialGradient id="ocean" cx="42%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".86" stop-color="#f3f4f6"/><stop offset="1" stop-color="#d1d5db"/></radialGradient>
     <filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter>
     <clipPath id="globe-clip"><circle cx="${CX}" cy="${CY}" r="${RADIUS}"/></clipPath>
-    <clipPath id="land-clip"><path d="${landMap.paths}" fill-rule="evenodd"/></clipPath>
   </defs>
   <rect width="100%" height="100%" fill="#fff"/>
   <circle cx="${CX + 4}" cy="${CY + 8}" r="${RADIUS}" fill="#9ca3af" opacity=".2" filter="url(#shadow)"/>
   <circle cx="${CX}" cy="${CY}" r="${RADIUS}" fill="url(#ocean)" stroke="#e5e7eb" stroke-width="3"/>
-  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9"><path d="${landMap.paths}" fill="#eef0f2" stroke="#c7ccd1" stroke-width=".8"/><g clip-path="url(#land-clip)">${landMap.dots}</g></g>
+  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9">${landDots}</g>
   ${markerSvg}
 </svg>`;
 }
