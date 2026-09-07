@@ -1,22 +1,8 @@
 {
   "user": "turbolego",
-  "generatedAt": "2026-09-07T13:18:05.132Z",
+  "generatedAt": "2026-09-07T21:27:34.771Z",
   "totalCommits": 13,
   "markers": [
-    {
-      "owner": "diegosouzapw",
-      "commits": 5,
-      "location": [
-        -23.5506507,
-        -46.6333824
-      ],
-      "repositories": [
-        {
-          "name": "OmniRoute",
-          "url": "https://github.com/diegosouzapw/OmniRoute"
-        }
-      ]
-    },
     {
       "owner": "progrium",
       "commits": 2,
@@ -46,6 +32,20 @@
       ]
     },
     {
+      "owner": "diegosouzapw",
+      "commits": 1,
+      "location": [
+        -23.5506507,
+        -46.6333824
+      ],
+      "repositories": [
+        {
+          "name": "OmniRoute",
+          "url": "https://github.com/diegosouzapw/OmniRoute"
+        }
+      ]
+    },
+    {
       "owner": "RightNow-AI",
       "commits": 1,
       "location": [
@@ -70,6 +70,20 @@
         {
           "name": "fang-upgrade",
           "url": "https://github.com/kyzdes/fang-upgrade"
+        }
+      ]
+    },
+    {
+      "owner": "xDweeb",
+      "commits": 1,
+      "location": [
+        28.3347722,
+        -10.3713379
+      ],
+      "repositories": [
+        {
+          "name": "HermesUnchained",
+          "url": "https://github.com/xDweeb/HermesUnchained"
         }
       ]
     },
