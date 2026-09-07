@@ -1,0 +1,47 @@
+{
+  "user": "turbolego",
+  "generatedAt": "2026-09-07T11:38:21.873Z",
+  "totalCommits": 19,
+  "markers": [
+    {
+      "owner": "xDweeb",
+      "commits": 6,
+      "location": [
+        28.3347722,
+        -10.3713379
+      ]
+    },
+    {
+      "owner": "progrium",
+      "commits": 2,
+      "location": [
+        37.8044557,
+        -122.271356
+      ]
+    },
+    {
+      "owner": "qualweb",
+      "commits": 2,
+      "location": [
+        38.7077507,
+        -9.1365919
+      ]
+    },
+    {
+      "owner": "kyzdes",
+      "commits": 1,
+      "location": [
+        42.2885656,
+        18.8419505
+      ]
+    },
+    {
+      "owner": "TurboDevsAS",
+      "commits": 1,
+      "location": [
+        59.9133301,
+        10.7389701
+      ]
+    }
+  ]
+}
