@@ -31,6 +31,6 @@ jobs:
       - name: Commit badge and analytics data
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "💖 Update cobe profile badge data"
+          commit_message: "Update cobe profile badge data"
           file_pattern: 'badge.svg data.json'
           branch: main
