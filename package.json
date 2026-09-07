@@ -6,9 +6,5 @@
   "scripts": {
     "generate": "node badge/generate-badge.js"
   },
-  "dependencies": {
-    "cobe": "0.1.0",
-    "canvas": "^2.11.2",
-    "node-fetch": "^3.3.2"
-  }
+  "dependencies": {}
 }
