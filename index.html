@@ -15,7 +15,7 @@
     .globe-wrap { position: relative; width: min(92vw, 620px); aspect-ratio: 1; margin: 0 auto; touch-action: none; }
     canvas { width: 100%; height: 100%; display: block; cursor: grab; }
     canvas:active { cursor: grabbing; }
-    .label { position: absolute; transform: translate(-50%, calc(-100% - 13px)); padding: 9px 12px; border-radius: 8px; background: rgba(23,23,23,.94); color: #fff; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px #0002; transition: left .08s linear, top .08s linear, opacity .12s; z-index: 3; }
+    .label { position: absolute; position-anchor: var(--label-anchor); bottom: anchor(top); left: anchor(center); translate: -50% 0; margin-bottom: 13px; padding: 9px 12px; border-radius: 8px; background: rgba(23,23,23,.94); color: #fff; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px #0002; opacity: var(--label-visible, 0); transition: opacity .12s; z-index: 3; }
     .label::after { content: ''; position: absolute; width: 7px; height: 7px; background: #171717; transform: rotate(45deg); bottom: -3px; left: calc(50% - 3px); }
     .label strong { font-size: 19px; }
     .label span { color: #34d399; font-size: 12px; margin-left: 8px; }
@@ -40,7 +40,6 @@
   <script type="module">
     import createGlobe from 'https://cdn.jsdelivr.net/npm/cobe@2.0.1/+esm';
     const canvas = document.querySelector('#globe');
-    const wrap = document.querySelector('#globe-wrap');
     const data = await fetch('./data.json', { cache: 'no-store' }).then((response) => {
       if (!response.ok) throw new Error(`Unable to load data.json (${response.status})`);
       return response.json();
@@ -49,40 +48,17 @@
     const labels = [];
     let pointer = null;
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-    const markerProjection = ([lat, lon]) => {
-      const latRad = lat * Math.PI / 180;
-      const lonRad = lon * Math.PI / 180 + state.phi;
-      const x = Math.cos(latRad) * Math.sin(lonRad);
-      const y = Math.sin(latRad);
-      const z = Math.cos(latRad) * Math.cos(lonRad);
-      const cosTheta = Math.cos(state.theta);
-      const sinTheta = Math.sin(state.theta);
-      return { x, y: y * cosTheta - z * sinTheta, z: y * sinTheta + z * cosTheta };
-    };
-    const updateLabels = () => {
-      const width = wrap.clientWidth;
-      const height = wrap.clientHeight;
-      for (const item of labels) {
-        const point = markerProjection(item.location);
-        // Use the exact marker projection: the card's arrow terminates at the green dot.
-        const x = width * (0.5 + point.x * 0.42 * state.scale);
-        const y = height * (0.5 - point.y * 0.42 * state.scale);
-        item.element.style.left = `${x}px`;
-        item.element.style.top = `${y}px`;
-        // A label is shown only when its corresponding Cobe marker is on the visible hemisphere.
-        item.element.style.opacity = point.z > 0.04 ? '1' : '0';
-      }
-    };
     document.querySelector('#title').textContent = `${data.user}'s contribution globe`;
     document.querySelector('#summary').textContent = `${data.totalCommits.toLocaleString()} tracked commits · updated ${new Date(data.generatedAt).toLocaleDateString()}`;
-    data.markers.forEach((marker) => {
+    data.markers.forEach((marker, index) => {
       const element = document.createElement('div');
       element.className = 'label';
       const percentage = Math.round(marker.commits / data.totalCommits * 100);
       element.innerHTML = `<strong>${marker.commits}</strong><span>↑ ${percentage}%</span>`;
       element.title = `${marker.owner}: ${marker.commits} commits (${percentage}%)`;
-      wrap.append(element);
-      labels.push({ element, location: marker.location });
+      element.style.setProperty('--label-anchor', `--cobe-marker-${index}`);
+      element.style.setProperty('--label-visible', `var(--cobe-visible-marker-${index}, 0)`);
+      labels.push({ element });
     });
     const globe = createGlobe(canvas, {
       devicePixelRatio: 2, width: 1200, height: 1200, phi: state.phi, theta: state.theta,
@@ -90,10 +66,13 @@
       baseColor: [1, 1, 1], markerColor: [0.2, 0.82, 0.45], glowColor: [1, 1, 1],
       markers: data.markers.map((marker, index) => ({ id: `marker-${index}`, location: marker.location, size: 0.055 })),
     });
+    // Cobe creates a positioned anchor layer around the canvas. Labels must be
+    // descendants of that layer so they inherit its generated anchor variables.
+    const anchorLayer = canvas.parentElement;
+    labels.forEach(({ element }) => anchorLayer.append(element));
     function animate() {
       if (!pointer) state.phi += 0.0018;
       globe.update({ phi: state.phi, theta: state.theta, scale: state.scale });
-      updateLabels();
       requestAnimationFrame(animate);
     }
     animate();
@@ -108,7 +87,6 @@
     canvas.addEventListener('pointerup', releasePointer);
     canvas.addEventListener('pointercancel', releasePointer);
     canvas.addEventListener('wheel', (event) => { event.preventDefault(); state.scale = clamp(state.scale - event.deltaY * 0.001, 0.75, 1.35); }, { passive: false });
-    window.addEventListener('resize', updateLabels);
   </script>
 </body>
 </html>
