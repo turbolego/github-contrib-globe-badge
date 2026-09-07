@@ -1,55 +1,57 @@
-# cobe‑github‑profile‑badge
+# cobe-github-profile-badge
 
-A **dynamic** badge that can be placed in any GitHub profile `README.md`. It visualises **where the owners of the repositories you contribute to are located**, using the tiny‑dependency globe from [shuding/cobe](https://github.com/shuding/cobe).
+A daily-updating GitHub contribution analytics badge showing where the owners of repositories you contribute to are located. Click the badge to open an **interactive Cobe globe** on GitHub Pages.
 
-![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg)
+[![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg)](https://turbolego.github.io/cobe-github-profile-badge/)
+
+## What it shows
+
+The static SVG badge shows a dotted world map, contribution-location markers, commit counts, and each location's percentage of tracked contributions. Clicking the badge opens the interactive version, where the globe can be dragged and zoomed. The interactive globe uses the same daily-generated `data.json` as the badge and displays the Cobe world map with live marker labels.
 
 ## How it works
-1. **GitHub API** – searches commits authored by the badge owner (since 2023) to collect the set of repositories you have contributed to.
-2. **Owner lookup** – for each distinct repository owner, the public `location` field from the GitHub user profile is fetched.
-3. **Geocoding** – free OSM Nominatim turns the location string into latitude/longitude.
-4. **cobe + canvas** – the lat/lon pairs become markers on a static globe rendered to an SVG.
-5. **GitHub Actions** – a daily workflow regenerates `badge.svg` and pushes it back to the repository.
 
-> The badge updates automatically **once per day**; no Vercel or external hosting required.
+1. GitHub Actions searches commits authored by the configured GitHub user since 2023 and groups them by repository owner.
+2. The generator looks up each owner's public GitHub profile location and geocodes it with OpenStreetMap Nominatim.
+3. The generator writes `badge.svg` for the static profile badge and `data.json` for the interactive page.
+4. GitHub Pages serves the root `index.html`, which loads Cobe in the browser and renders the interactive globe.
+5. A daily workflow regenerates and commits the badge and shared analytics data.
 
-## Adding the badge to your profile
-Add the following markdown line to your GitHub profile README (replace `turbolego` with your GitHub username if you fork the repo):
+## Adding the badge to a profile README
+
+Use the linked-image Markdown below. Replace `turbolego` with your GitHub username if you fork the repository:
 
 ```markdown
-![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg)
+[![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg)](https://turbolego.github.io/cobe-github-profile-badge/)
 ```
 
-The image will render directly in the README and will refresh each day after the Action runs.
+The outer link opens the interactive GitHub Pages globe in a new browser tab when the profile visitor clicks the badge link.
 
 ## Repository layout
-```
+
+```text
 .
-├─ badge/                     # badge generator (node script)
-│   └─ generate-badge.js       # builds badge.svg
-├─ .github/workflows/          # GitHub Action to update badge
-│   └─ badge-update.yml
-├─ website/                    # original cobe website (unchanged)
-├─ package.json                # root dependencies (cobe, canvas, node‑fetch)
-└─ README.md                   # this file
+├─ index.html                         # interactive Cobe globe served by GitHub Pages
+├─ data.json                          # generated contribution data consumed by index.html
+├─ badge.svg                          # generated static profile badge
+├─ badge/generate-badge.js            # badge and analytics-data generator
+└─ .github/workflows/badge-update.yml # daily generation and commit workflow
 ```
 
-## Customising the badge
-* **Size** – edit `size` in `badge/generate-badge.js` (default = 520 px).
-* **Marker colour** – adjust `markerColor` in the globe options.
-* **Date range** – change the `author-date:>2023-01-01` filter in the commit‑search query.
+## Customising
 
----
-### Development
+The contribution date range is controlled by the `author-date:>2023-01-01` query in `badge/generate-badge.js`. The interactive page imports Cobe from jsDelivr and can be customised through the globe options and page styles in `index.html`.
+
+## Development
+
 ```bash
-# install root deps (cobe, canvas, node-fetch)
-npm ci
-# generate badge locally (writes badge.svg)
-node badge/generate-badge.js
+npm install
+GITHUB_ACTOR=turbolego node badge/generate-badge.js
 ```
 
-The `badge.svg` can be committed and pushed manually, but the Action will keep it up‑to‑date automatically.
+The generator writes both `badge.svg` and `data.json`. GitHub Pages is configured to serve the repository's `main` branch root at:
 
----
-### License
-MIT – see LICENSE file.
+<https://turbolego.github.io/cobe-github-profile-badge/>
+
+## License
+
+MIT
