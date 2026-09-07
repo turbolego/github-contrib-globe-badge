@@ -2,7 +2,7 @@
 
 A daily-updating GitHub contribution analytics badge showing where the owners of repositories you contribute to are located. Click the badge to open an **interactive Cobe globe** on GitHub Pages.
 
-[![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg )](https://turbolego.github.io/cobe-github-profile-badge/ )
+[![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg)](https://turbolego.github.io/cobe-github-profile-badge/)
 
 ## What it shows
 
