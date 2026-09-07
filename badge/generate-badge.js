@@ -83,6 +83,24 @@ async function getContributions(user) {
     if (items.length < 100) break;
   }
 
+  // GitHub's author search may return only one repository for a commit that
+  // exists in several mirrors or forks. Search each SHA separately so the
+  // canonical repository can be selected by creation date.
+  for (const sha of commitCandidates.keys()) {
+    try {
+      const matches = await fetchJSON(
+        `https://api.github.com/search/commits?q=sha%3A${encodeURIComponent(sha)}&per_page=100`,
+        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
+      );
+      for (const match of matches.items || []) {
+        const fullName = match.repository?.full_name;
+        if (fullName) commitCandidates.get(sha).add(fullName);
+      }
+    } catch (error) {
+      console.warn(`Could not expand repositories for commit ${sha.slice(0, 8)}: ${error.message}`);
+    }
+  }
+
   for (const [sha, candidates] of commitCandidates) {
     let selected = null;
     let selectedDate = null;
