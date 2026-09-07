@@ -6,5 +6,8 @@
   "scripts": {
     "generate": "node badge/generate-badge.js"
   },
-  "dependencies": {}
+  "dependencies": {
+    "canvas": "^2.11.2",
+    "gif-encoder-2": "^1.0.5"
+  }
 }

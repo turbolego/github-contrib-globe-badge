@@ -1,11 +1,15 @@
 import fs from 'fs';
 import https from 'https';
+import { createCanvas } from 'canvas';
+import GIFEncoder from 'gif-encoder-2';
 
 const USER = process.env.GITHUB_ACTOR || 'kveita';
 const SIZE = 520;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const RADIUS = 238;
+const FRAMES = 60;
+const FRAME_DELAY = 50; // ms — 60 frames × 50ms = 3s per rotation
 const WORLD_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
 
 function fetchJSONOnce(url, headers = {}) {
@@ -113,13 +117,13 @@ async function getContributions(user) {
     }
     if (!selected) continue;
     const owner = selected.split('/')[0];
-      if (owner === user) continue;
-      if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
-      const ownerStats = counts.get(owner);
-      ownerStats.commits += 1;
-      ownerStats.repositories.add(selected);
-      total += 1;
-      console.log(`Commit ${sha.slice(0, 8)} attributed to ${selected}`);
+    if (owner === user) continue;
+    if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
+    const ownerStats = counts.get(owner);
+    ownerStats.commits += 1;
+    ownerStats.repositories.add(selected);
+    total += 1;
+    console.log(`Commit ${sha.slice(0, 8)} attributed to ${selected}`);
   }
 
   return { counts, total };
@@ -167,39 +171,6 @@ function pointInGeometry(lon, lat, geometry) {
   return false;
 }
 
-function project(lat, lon) {
-  const latRad = (lat * Math.PI) / 180;
-  const lonRad = (lon * Math.PI) / 180;
-  const centerLon = 0;
-  const centerLat = 12 * Math.PI / 180;
-  const cosLat = Math.cos(latRad);
-  const x = Math.cos(latRad) * Math.sin(lonRad - centerLon);
-  const y = Math.cos(centerLat) * Math.sin(latRad) - Math.sin(centerLat) * cosLat * Math.cos(lonRad - centerLon);
-  const z = Math.sin(centerLat) * Math.sin(latRad) + Math.cos(centerLat) * cosLat * Math.cos(lonRad - centerLon);
-  if (z < 0) return null;
-  return [CX + x * RADIUS, CY - y * RADIUS, z];
-}
-
-function equirectangularPoint([lon, lat]) {
-  return [CX + (lon / 180) * RADIUS, CY - (lat / 90) * RADIUS * 0.5];
-}
-
-function ringToPath(ring) {
-  return ring.map((coordinate, index) => {
-    const [x, y] = equirectangularPoint(coordinate);
-    return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ') + ' Z';
-}
-
-function geometryToPath(geometry) {
-  if (!geometry) return '';
-  if (geometry.type === 'Polygon') return geometry.coordinates.map(ringToPath).join(' ');
-  if (geometry.type === 'MultiPolygon') {
-    return geometry.coordinates.flatMap((polygon) => polygon.map(ringToPath)).join(' ');
-  }
-  return '';
-}
-
 function landPolygons(geojson) {
   const polygons = [];
   for (const feature of geojson.features || []) {
@@ -223,9 +194,24 @@ function landPolygons(geojson) {
   return polygons;
 }
 
-function buildLandMap(geojson) {
+// Orthographic projection — centerLonDeg rotates the globe for animation.
+function project(lat, lon, centerLonDeg = 0) {
+  const latRad = (lat * Math.PI) / 180;
+  const lonRad = (lon * Math.PI) / 180;
+  const centerLon = (centerLonDeg * Math.PI) / 180;
+  const centerLat = (12 * Math.PI) / 180;
+  const cosLat = Math.cos(latRad);
+  const x = Math.cos(latRad) * Math.sin(lonRad - centerLon);
+  const y = Math.cos(centerLat) * Math.sin(latRad) - Math.sin(centerLat) * cosLat * Math.cos(lonRad - centerLon);
+  const z = Math.sin(centerLat) * Math.sin(latRad) + Math.cos(centerLat) * cosLat * Math.cos(lonRad - centerLon);
+  if (z < 0) return null;
+  return [CX + x * RADIUS, CY - y * RADIUS, z];
+}
+
+// Precompute which grid points are land — independent of rotation angle.
+function computeLandGrid(geojson) {
   const polygons = landPolygons(geojson);
-  const dots = [];
+  const grid = [];
   for (let lat = -84; lat <= 84; lat += 2.8) {
     for (let lon = -180; lon < 180; lon += 2.8) {
       const land = polygons.some(({ polygon, minLon, maxLon, minLat, maxLat }) => (
@@ -233,51 +219,110 @@ function buildLandMap(geojson) {
         && pointInRing(lon, lat, polygon[0])
         && !polygon.slice(1).some((ring) => pointInRing(lon, lat, ring))
       ));
-      if (!land) continue;
-      const point = project(lat, lon);
-      if (point) dots.push(`<circle cx="${point[0].toFixed(1)}" cy="${point[1].toFixed(1)}" r="1.15"/>`);
+      if (land) grid.push([lat, lon]);
     }
   }
-  return dots.join('');
+  return grid;
 }
 
-function buildMarker(label, location, commits, percentage) {
-  const point = project(...location);
-  if (!point) return '';
-  const [x, y] = point;
-  const boxWidth = 98;
-  const boxHeight = 34;
-  const boxX = Math.max(8, Math.min(SIZE - boxWidth - 8, x - boxWidth / 2));
-  const boxY = Math.max(8, y - 48);
-  const safeLabel = label.replace(/[&<>"']/g, '');
-  return `<g>
-    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
-    <rect x="${boxX.toFixed(1)}" y="${boxY.toFixed(1)}" width="${boxWidth}" height="${boxHeight}" rx="7" fill="#171717" opacity=".94"/>
-    <text x="${(boxX + 10).toFixed(1)}" y="${(boxY + 22).toFixed(1)}" fill="#fff" font-family="monospace" font-size="16" font-weight="700">${commits}</text>
-    <text x="${(boxX + 57).toFixed(1)}" y="${(boxY + 21).toFixed(1)}" fill="#34d399" font-family="monospace" font-size="11">↑ ${percentage}%</text>
-    <title>${safeLabel}: ${commits} commits (${percentage}%)</title>
-  </g>`;
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
-function buildSvg(landDots, markers, total) {
-  const markerSvg = markers.map((marker) => buildMarker(
-    marker.owner,
-    marker.location,
-    marker.commits,
-    Math.round((marker.commits / total) * 100),
-  )).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" role="img" aria-label="GitHub contribution analytics globe">
-  <defs>
-    <radialGradient id="ocean" cx="42%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".86" stop-color="#f3f4f6"/><stop offset="1" stop-color="#d1d5db"/></radialGradient>
-    <filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter>
-    <clipPath id="globe-clip"><circle cx="${CX}" cy="${CY}" r="${RADIUS}"/></clipPath>
-  </defs>
-  <rect width="100%" height="100%" fill="#fff"/>
-  <circle cx="${CX + 4}" cy="${CY + 8}" r="${RADIUS}" fill="#9ca3af" opacity=".2" filter="url(#shadow)"/>
-  <circle cx="${CX}" cy="${CY}" r="${RADIUS}" fill="url(#ocean)" stroke="#e5e7eb" stroke-width="3"/>
-  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9">${landDots}</g>
-  ${markerSvg}
-</svg>`;
+function renderFrame(ctx, centerLonDeg, landGrid, markers, total) {
+  // Background
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(156, 163, 175, 0.2)';
+  ctx.beginPath();
+  ctx.arc(CX + 4, CY + 8, RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ocean
+  const grad = ctx.createRadialGradient(
+    CX - RADIUS * 0.08, CY - RADIUS * 0.15, 0,
+    CX, CY, RADIUS,
+  );
+  grad.addColorStop(0, '#fff');
+  grad.addColorStop(0.86, '#f3f4f6');
+  grad.addColorStop(1, '#d1d5db');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(CX, CY, RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Land dots (clipped to globe)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, RADIUS, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#343a40';
+  ctx.globalAlpha = 0.9;
+  for (const [lat, lon] of landGrid) {
+    const p = project(lat, lon, centerLonDeg);
+    if (!p) continue;
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], 1.15, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Markers — fade near the globe edge for smooth rotation
+  for (const marker of markers) {
+    const p = project(marker.location[0], marker.location[1], centerLonDeg);
+    if (!p) continue;
+    const [x, y, z] = p;
+    const opacity = Math.min(1, z * 2.5);
+    if (opacity <= 0) continue;
+    const percentage = Math.round((marker.commits / total) * 100);
+
+    ctx.globalAlpha = opacity;
+
+    // Marker dot
+    ctx.fillStyle = '#34d399';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Label box
+    const boxWidth = 98;
+    const boxHeight = 34;
+    const boxX = Math.max(8, Math.min(SIZE - boxWidth - 8, x - boxWidth / 2));
+    const boxY = Math.max(8, y - 48);
+
+    ctx.fillStyle = 'rgba(23, 23, 23, 0.94)';
+    roundRect(ctx, boxX, boxY, boxWidth, boxHeight, 7);
+    ctx.fill();
+
+    // Commit count
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(String(marker.commits), boxX + 10, boxY + boxHeight / 2);
+
+    // Percentage
+    ctx.fillStyle = '#34d399';
+    ctx.font = '11px monospace';
+    ctx.fillText(`↑ ${percentage}%`, boxX + 57, boxY + boxHeight / 2 - 1);
+
+    ctx.globalAlpha = 1;
+  }
 }
 
 async function main() {
@@ -305,8 +350,24 @@ async function main() {
     totalCommits: total,
     markers,
   }, null, 2));
-  fs.writeFileSync('badge.svg', buildSvg(buildLandMap(geojson), markers, total || 1));
-  console.log(`✅ badge.svg written – ${markers.length} locations, ${total} commits`);
+
+  // Render animated GIF — globe rotates one full turn seamlessly.
+  const landGrid = computeLandGrid(geojson);
+  const canvas = createCanvas(SIZE, SIZE);
+  const ctx = canvas.getContext('2d');
+  const encoder = new GIFEncoder(SIZE, SIZE);
+  encoder.setDelay(FRAME_DELAY);
+  encoder.setRepeat(0); // loop forever
+  encoder.setQuality(10);
+  encoder.start();
+  for (let i = 0; i < FRAMES; i += 1) {
+    const angle = (360 / FRAMES) * i;
+    renderFrame(ctx, angle, landGrid, markers, total || 1);
+    encoder.addFrame(ctx);
+  }
+  encoder.finish();
+  fs.writeFileSync('badge.gif', Buffer.from(encoder.out.getData()));
+  console.log(`✅ badge.gif written – ${markers.length} locations, ${total} commits, ${FRAMES} frames`);
 }
 
 main().catch((error) => {
