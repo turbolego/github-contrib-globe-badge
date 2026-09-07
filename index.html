@@ -12,10 +12,10 @@
     .eyebrow { letter-spacing: .28em; color: #1745d1; font-size: clamp(15px, 2.5vw, 24px); margin: 0 0 8px; }
     h1 { font-size: clamp(18px, 3vw, 28px); font-weight: 500; margin: 0 0 8px; }
     .subtle { color: #6b7280; font-size: 12px; margin: 0 0 10px; }
-    .globe-wrap { position: relative; width: min(92vw, 620px); aspect-ratio: 1; margin: 0 auto; }
+    .globe-wrap { position: relative; width: min(92vw, 620px); aspect-ratio: 1; margin: 0 auto; touch-action: none; }
     canvas { width: 100%; height: 100%; display: block; cursor: grab; }
     canvas:active { cursor: grabbing; }
-    .label { position: absolute; transform: translate(-50%, -100%); padding: 9px 12px; border-radius: 8px; background: rgba(23,23,23,.94); color: #fff; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px #0002; }
+    .label { position: absolute; transform: translate(-50%, -100%); padding: 9px 12px; border-radius: 8px; background: rgba(23,23,23,.94); color: #fff; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px #0002; transition: opacity .12s; }
     .label strong { font-size: 19px; }
     .label span { color: #34d399; font-size: 12px; margin-left: 8px; }
     .legend { margin: 4px auto 0; color: #6b7280; font-size: 12px; }
@@ -41,35 +41,36 @@
 
     const canvas = document.querySelector('#globe');
     const wrap = document.querySelector('#globe-wrap');
-    const summary = document.querySelector('#summary');
-    const labels = [];
+    const data = await fetch('./data.json', { cache: 'no-store' }).then((response) => {
+      if (!response.ok) throw new Error(`Unable to load data.json (${response.status})`);
+      return response.json();
+    });
     const state = { phi: 0, theta: 0.18, scale: 1.05 };
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
+    const labels = [];
+    let pointer = null;
 
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-    const labelPosition = (lat, lon) => {
+    const markerProjection = ([lat, lon]) => {
       const latRad = lat * Math.PI / 180;
       const lonRad = lon * Math.PI / 180 + state.phi;
       const x = Math.cos(latRad) * Math.sin(lonRad);
       const y = Math.sin(latRad);
       const z = Math.cos(latRad) * Math.cos(lonRad);
-      return { x, y, z };
+      const cosTheta = Math.cos(state.theta);
+      const sinTheta = Math.sin(state.theta);
+      return { x, y: y * cosTheta - z * sinTheta, z: y * sinTheta + z * cosTheta };
     };
     const updateLabels = () => {
       for (const item of labels) {
-        const point = labelPosition(...item.location);
-        item.element.style.opacity = point.z > 0 ? '1' : '0';
-        item.element.style.left = `${50 + point.x * 43}%`;
-        item.element.style.top = `${50 - point.y * 43}%`;
+        const point = markerProjection(item.location);
+        item.element.style.opacity = point.z > 0.04 ? '1' : '0';
+        item.element.style.left = `${50 + point.x * 42 * state.scale}%`;
+        item.element.style.top = `${50 - point.y * 42 * state.scale}%`;
       }
     };
 
-    const data = await fetch('./data.json').then((response) => response.json());
     document.querySelector('#title').textContent = `${data.user}'s contribution globe`;
-    summary.textContent = `${data.totalCommits.toLocaleString()} tracked commits · updated ${new Date(data.generatedAt).toLocaleDateString()}`;
-
+    document.querySelector('#summary').textContent = `${data.totalCommits.toLocaleString()} tracked commits · updated ${new Date(data.generatedAt).toLocaleDateString()}`;
     for (const marker of data.markers) {
       const element = document.createElement('div');
       element.className = 'label';
@@ -90,29 +91,38 @@
       diffuse: 1.2,
       mapSamples: 16000,
       mapBrightness: 6,
+      mapBaseBrightness: 0,
       baseColor: [1, 1, 1],
       markerColor: [0.2, 0.82, 0.45],
       glowColor: [1, 1, 1],
-      markers: data.markers.map((marker) => ({ location: marker.location, size: 0.055 })),
-      onRender: (renderState) => {
-        if (!dragging) state.phi += 0.0018;
-        renderState.phi = state.phi;
-        renderState.theta = state.theta;
-        renderState.scale = state.scale;
-        updateLabels();
-      },
+      markers: data.markers.map((marker, index) => ({ id: `marker-${index}`, location: marker.location, size: 0.055 })),
     });
 
-    canvas.addEventListener('pointerdown', (event) => { dragging = true; lastX = event.clientX; lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
-    canvas.addEventListener('pointermove', (event) => {
-      if (!dragging) return;
-      state.phi += (event.clientX - lastX) * 0.008;
-      state.theta = clamp(state.theta + (event.clientY - lastY) * 0.004, -0.8, 0.8);
-      lastX = event.clientX; lastY = event.clientY;
+    function animate() {
+      if (!pointer) state.phi += 0.0018;
+      globe.update({ phi: state.phi, theta: state.theta, scale: state.scale });
+      updateLabels();
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    canvas.addEventListener('pointerdown', (event) => {
+      pointer = { x: event.clientX, y: event.clientY };
+      canvas.setPointerCapture(event.pointerId);
     });
-    canvas.addEventListener('pointerup', () => { dragging = false; });
-    canvas.addEventListener('pointercancel', () => { dragging = false; });
-    canvas.addEventListener('wheel', (event) => { event.preventDefault(); state.scale = clamp(state.scale - event.deltaY * 0.001, 0.75, 1.35); }, { passive: false });
+    canvas.addEventListener('pointermove', (event) => {
+      if (!pointer) return;
+      state.phi += (event.clientX - pointer.x) / 300;
+      state.theta = clamp(state.theta + (event.clientY - pointer.y) / 1000, -0.8, 0.8);
+      pointer = { x: event.clientX, y: event.clientY };
+    });
+    const releasePointer = () => { pointer = null; };
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      state.scale = clamp(state.scale - event.deltaY * 0.001, 0.75, 1.35);
+    }, { passive: false });
   </script>
 </body>
 </html>
