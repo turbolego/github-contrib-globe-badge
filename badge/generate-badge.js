@@ -42,6 +42,7 @@ function githubHeaders() {
   return {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'cobe-github-profile-badge',
+    ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
   };
 }
 
@@ -132,18 +133,36 @@ function project(lat, lon) {
   return [CX + x * RADIUS, CY - y * RADIUS, z];
 }
 
-function buildLandDots(geojson) {
-  const features = geojson.features || [];
+function equirectangularPoint([lon, lat]) {
+  return [CX + (lon / 180) * RADIUS, CY - (lat / 90) * RADIUS * 0.5];
+}
+
+function ringToPath(ring) {
+  return ring.map((coordinate, index) => {
+    const [x, y] = equirectangularPoint(coordinate);
+    return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ') + ' Z';
+}
+
+function geometryToPath(geometry) {
+  if (!geometry) return '';
+  if (geometry.type === 'Polygon') return geometry.coordinates.map(ringToPath).join(' ');
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.flatMap((polygon) => polygon.map(ringToPath)).join(' ');
+  }
+  return '';
+}
+
+function buildLandMap(geojson) {
+  const paths = (geojson.features || []).map((feature) => geometryToPath(feature.geometry)).join(' ');
   const dots = [];
-  const spacing = 4.2;
-  for (let lat = -84; lat <= 84; lat += spacing) {
-    for (let lon = -180; lon < 180; lon += spacing) {
-      if (!features.some((feature) => pointInGeometry(lon, lat, feature.geometry))) continue;
-      const point = project(lat, lon);
-      if (point) dots.push(`<circle cx="${point[0].toFixed(1)}" cy="${point[1].toFixed(1)}" r="1.15"/>`);
+  for (let lat = -84; lat <= 84; lat += 3.8) {
+    for (let lon = -180; lon < 180; lon += 3.8) {
+      const [x, y] = equirectangularPoint([lon, lat]);
+      dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.15"/>`);
     }
   }
-  return dots.join('');
+  return { paths, dots: dots.join('') };
 }
 
 function buildMarker(label, location, commits, percentage) {
@@ -164,7 +183,7 @@ function buildMarker(label, location, commits, percentage) {
   </g>`;
 }
 
-function buildSvg(landDots, markers, total) {
+function buildSvg(landMap, markers, total) {
   const markerSvg = markers.map((marker) => buildMarker(
     marker.owner,
     marker.location,
@@ -176,11 +195,12 @@ function buildSvg(landDots, markers, total) {
     <radialGradient id="ocean" cx="42%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".86" stop-color="#f3f4f6"/><stop offset="1" stop-color="#d1d5db"/></radialGradient>
     <filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter>
     <clipPath id="globe-clip"><circle cx="${CX}" cy="${CY}" r="${RADIUS}"/></clipPath>
+    <clipPath id="land-clip"><path d="${landMap.paths}" fill-rule="evenodd"/></clipPath>
   </defs>
   <rect width="100%" height="100%" fill="#fff"/>
   <circle cx="${CX + 4}" cy="${CY + 8}" r="${RADIUS}" fill="#9ca3af" opacity=".2" filter="url(#shadow)"/>
   <circle cx="${CX}" cy="${CY}" r="${RADIUS}" fill="url(#ocean)" stroke="#e5e7eb" stroke-width="3"/>
-  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9">${landDots}</g>
+  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9"><path d="${landMap.paths}" fill="#eef0f2" stroke="#c7ccd1" stroke-width=".8"/><g clip-path="url(#land-clip)">${landMap.dots}</g></g>
   ${markerSvg}
 </svg>`;
 }
@@ -196,7 +216,7 @@ async function main() {
     if (location) markers.push({ owner, commits, location });
   }
   const geojson = await fetchJSON(WORLD_GEOJSON_URL, { 'User-Agent': 'cobe-github-profile-badge/1.0' });
-  fs.writeFileSync('badge.svg', buildSvg(buildLandDots(geojson), markers, total || 1));
+  fs.writeFileSync('badge.svg', buildSvg(buildLandMap(geojson), markers, total || 1));
   console.log(`✅ badge.svg written – ${markers.length} locations, ${total} commits`);
 }
 
