@@ -7,6 +7,9 @@ const CX = SIZE / 2;
 const CY = SIZE / 2;
 const RADIUS = 238;
 const WORLD_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+const REPOSITORY_ALIASES = {
+  'xDweeb/HermesUnchained': 'diegosouzapw/OmniRoute',
+};
 
 function fetchJSONOnce(url, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -65,8 +68,9 @@ async function getContributions(user) {
     }
     const items = data.items || [];
     for (const item of items) {
-      const fullName = item.repository?.full_name;
-      if (!fullName) continue;
+      const indexedName = item.repository?.full_name;
+      if (!indexedName) continue;
+      const fullName = REPOSITORY_ALIASES[indexedName] || indexedName;
       const owner = fullName.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
