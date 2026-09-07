@@ -1,7 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="520" height="520" viewBox="0 0 520 520">
-  <defs><radialGradient id="globe"><stop offset="0" stop-color="#3f3f3f"/><stop offset="1" stop-color="#151515"/></radialGradient><clipPath id="clip"><circle cx="260" cy="260" r="238"/></clipPath></defs>
-  <rect width="100%" height="100%" fill="#0d1117"/>
-  <circle cx="260" cy="260" r="238" fill="url(#globe)" stroke="#666" stroke-width="3"/>
-  <g clip-path="url(#clip)" fill="none" stroke="#777" stroke-opacity=".38" stroke-width="1"><path d="M 101.33 141 Q 260 260 101.33 379"/><path d="M 180.67 141 Q 260 260 180.67 379"/><path d="M 260.00 141 Q 260 260 260.00 379"/><path d="M 339.33 141 Q 260 260 339.33 379"/><path d="M 418.67 141 Q 260 260 418.67 379"/><ellipse cx="260" cy="339.33" rx="238" ry="42.84"/><ellipse cx="260" cy="299.67" rx="238" ry="42.84"/><ellipse cx="260" cy="260.00" rx="238" ry="42.84"/><ellipse cx="260" cy="220.33" rx="238" ry="42.84"/><ellipse cx="260" cy="180.67" rx="238" ry="42.84"/></g>
-  <g><circle cx="98.33" cy="210.01" r="5" fill="#e6b233"/><circle cx="247.92" cy="208.82" r="5" fill="#e6b233"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="520" viewBox="0 0 520 520" role="img" aria-label="GitHub contribution analytics globe">
+  <defs>
+    <radialGradient id="ocean" cx="42%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".86" stop-color="#f3f4f6"/><stop offset="1" stop-color="#d1d5db"/></radialGradient>
+    <filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter>
+    <clipPath id="globe-clip"><circle cx="260" cy="260" r="238"/></clipPath>
+  </defs>
+  <rect width="100%" height="100%" fill="#fff"/>
+  <circle cx="264" cy="268" r="238" fill="#9ca3af" opacity=".2" filter="url(#shadow)"/>
+  <circle cx="260" cy="260" r="238" fill="url(#ocean)" stroke="#e5e7eb" stroke-width="3"/>
+  <g clip-path="url(#globe-clip)" fill="#343a40" opacity=".9"></g>
+  <g>
+    <circle cx="222.3" cy="192.4" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
+    <rect x="173.3" y="144.4" width="98" height="34" rx="7" fill="#171717" opacity=".94"/>
+    <text x="183.3" y="166.4" fill="#fff" font-family="monospace" font-size="16" font-weight="700">6</text>
+    <text x="230.3" y="165.4" fill="#34d399" font-family="monospace" font-size="11">↑ 32%</text>
+    <title>xDweeb: 6 commits (32%)</title>
+  </g><g>
+    <circle cx="230.5" cy="152.5" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
+    <rect x="181.5" y="104.5" width="98" height="34" rx="7" fill="#171717" opacity=".94"/>
+    <text x="191.5" y="126.5" fill="#fff" font-family="monospace" font-size="16" font-weight="700">2</text>
+    <text x="238.5" y="125.5" fill="#34d399" font-family="monospace" font-size="11">↑ 11%</text>
+    <title>qualweb: 2 commits (11%)</title>
+  </g><g>
+    <circle cx="316.9" cy="138.0" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
+    <rect x="267.9" y="90.0" width="98" height="34" rx="7" fill="#171717" opacity=".94"/>
+    <text x="277.9" y="112.0" fill="#fff" font-family="monospace" font-size="16" font-weight="700">1</text>
+    <text x="324.9" y="111.0" fill="#34d399" font-family="monospace" font-size="11">↑ 5%</text>
+    <title>kyzdes: 1 commits (5%)</title>
+  </g><g>
+    <circle cx="282.2" cy="82.9" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
+    <rect x="233.2" y="34.9" width="98" height="34" rx="7" fill="#171717" opacity=".94"/>
+    <text x="243.2" y="56.9" fill="#fff" font-family="monospace" font-size="16" font-weight="700">1</text>
+    <text x="290.2" y="55.9" fill="#34d399" font-family="monospace" font-size="11">↑ 5%</text>
+    <title>TurboDevsAS: 1 commits (5%)</title>
+  </g>
 </svg>
