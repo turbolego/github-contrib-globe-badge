@@ -1,0 +1,27 @@
+{
+  "name": "cobe-site",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "cobe": "workspace:*",
+    "geist": "^1.4.1",
+    "leva": "^0.9.34",
+    "next": "^16.1.6",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-spring": "^9.4.4",
+    "sugar-high": "^0.9.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start"
+  },
+  "author": "Shu Ding <g@shud.in>",
+  "license": "MIT"
+}

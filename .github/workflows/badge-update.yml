@@ -1,0 +1,34 @@
+name: Update cobe profile badge
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # daily
+  workflow_dispatch:
+
+jobs:
+  build-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credits: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies (root)
+        run: npm ci
+      - name: Install dependencies (website)
+        working-directory: website
+        run: npm ci
+      - name: Generate badge.svg
+        env:
+          GITHUB_ACTOR: ${{ github.repository_owner }}
+        run: node badge/generate-badge.js
+      - name: Commit badge.svg
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "\ud83d\udc9c Update cobe profile badge"
+          file_pattern: badge.svg
+          branch: main
