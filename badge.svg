@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="520" viewBox="0 0 520 520">
+  <defs><radialGradient id="globe"><stop offset="0" stop-color="#3f3f3f"/><stop offset="1" stop-color="#151515"/></radialGradient><clipPath id="clip"><circle cx="260" cy="260" r="238"/></clipPath></defs>
+  <rect width="100%" height="100%" fill="#0d1117"/>
+  <circle cx="260" cy="260" r="238" fill="url(#globe)" stroke="#666" stroke-width="3"/>
+  <g clip-path="url(#clip)" fill="none" stroke="#777" stroke-opacity=".38" stroke-width="1"><path d="M 101.33 141 Q 260 260 101.33 379"/><path d="M 180.67 141 Q 260 260 180.67 379"/><path d="M 260.00 141 Q 260 260 260.00 379"/><path d="M 339.33 141 Q 260 260 339.33 379"/><path d="M 418.67 141 Q 260 260 418.67 379"/><ellipse cx="260" cy="339.33" rx="238" ry="42.84"/><ellipse cx="260" cy="299.67" rx="238" ry="42.84"/><ellipse cx="260" cy="260.00" rx="238" ry="42.84"/><ellipse cx="260" cy="220.33" rx="238" ry="42.84"/><ellipse cx="260" cy="180.67" rx="238" ry="42.84"/></g>
+  <g><circle cx="98.33" cy="210.01" r="5" fill="#e6b233"/><circle cx="247.92" cy="208.82" r="5" fill="#e6b233"/></g>
+</svg>
