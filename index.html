@@ -15,10 +15,10 @@
     .globe-wrap { position: relative; width: min(92vw, 620px); aspect-ratio: 1; margin: 0 auto; touch-action: none; }
     canvas { width: 100%; height: 100%; display: block; cursor: grab; }
     canvas:active { cursor: grabbing; }
-    .label { position: absolute; transform: translate(-50%, -50%); padding: 9px 12px; border-radius: 8px; background: rgba(23,23,23,.94); color: #fff; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px #0002; transition: left .08s linear, top .08s linear; z-index: 2; }
+    .label { position: absolute; transform: translate(-50%, calc(-100% - 13px)); padding: 9px 12px; border-radius: 8px; background: rgba(23,23,23,.94); color: #fff; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px #0002; transition: left .08s linear, top .08s linear, opacity .12s; z-index: 3; }
+    .label::after { content: ''; position: absolute; width: 7px; height: 7px; background: #171717; transform: rotate(45deg); bottom: -3px; left: calc(50% - 3px); }
     .label strong { font-size: 19px; }
     .label span { color: #34d399; font-size: 12px; margin-left: 8px; }
-    .label::after { content: ''; position: absolute; width: 7px; height: 7px; background: #171717; transform: rotate(45deg); bottom: -3px; left: calc(50% - 3px); }
     .legend { margin: 4px auto 0; color: #6b7280; font-size: 12px; }
     .rule { width: min(74vw, 540px); height: 5px; margin: 24px auto 15px; background: #1745d1; }
     footer { color: #9ca3af; font-size: 11px; }
@@ -62,28 +62,27 @@
     const updateLabels = () => {
       const width = wrap.clientWidth;
       const height = wrap.clientHeight;
-      labels.forEach((item, index) => {
+      for (const item of labels) {
         const point = markerProjection(item.location);
-        // Keep every card visible. Small deterministic offsets keep nearby cards readable.
-        const angle = (index / Math.max(labels.length, 1)) * Math.PI * 2 - Math.PI / 2;
-        const offset = Math.min(72, Math.max(38, width * 0.11));
-        const x = clamp(width * (0.5 + point.x * 0.42 * state.scale) + Math.cos(angle) * offset, 65, width - 65);
-        const y = clamp(height * (0.5 - point.y * 0.42 * state.scale) + Math.sin(angle) * offset, 28, height - 28);
+        // Use the exact marker projection: the card's arrow terminates at the green dot.
+        const x = width * (0.5 + point.x * 0.42 * state.scale);
+        const y = height * (0.5 - point.y * 0.42 * state.scale);
         item.element.style.left = `${x}px`;
         item.element.style.top = `${y}px`;
-        item.element.style.zIndex = point.z > 0 ? '3' : '2';
-      });
+        // A label is shown only when its corresponding Cobe marker is on the visible hemisphere.
+        item.element.style.opacity = point.z > 0.04 ? '1' : '0';
+      }
     };
     document.querySelector('#title').textContent = `${data.user}'s contribution globe`;
     document.querySelector('#summary').textContent = `${data.totalCommits.toLocaleString()} tracked commits · updated ${new Date(data.generatedAt).toLocaleDateString()}`;
-    data.markers.forEach((marker, index) => {
+    data.markers.forEach((marker) => {
       const element = document.createElement('div');
       element.className = 'label';
       const percentage = Math.round(marker.commits / data.totalCommits * 100);
       element.innerHTML = `<strong>${marker.commits}</strong><span>↑ ${percentage}%</span>`;
       element.title = `${marker.owner}: ${marker.commits} commits (${percentage}%)`;
       wrap.append(element);
-      labels.push({ element, location: marker.location, index });
+      labels.push({ element, location: marker.location });
     });
     const globe = createGlobe(canvas, {
       devicePixelRatio: 2, width: 1200, height: 1200, phi: state.phi, theta: state.theta,
