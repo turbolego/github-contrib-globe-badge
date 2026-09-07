@@ -69,7 +69,10 @@ async function getContributions(user) {
       if (!fullName) continue;
       const owner = fullName.split('/')[0];
       if (owner === user) continue;
-      counts.set(owner, (counts.get(owner) || 0) + 1);
+      if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
+      const ownerStats = counts.get(owner);
+      ownerStats.commits += 1;
+      ownerStats.repositories.add(fullName);
       total += 1;
     }
     if (items.length < 100) break;
@@ -235,13 +238,21 @@ function buildSvg(landDots, markers, total) {
 
 async function main() {
   const { counts, total } = await getContributions(USER);
-  const owners = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const owners = [...counts.entries()].sort((a, b) => b[1].commits - a[1].commits).slice(0, 8);
   console.log(`Found ${total} commits across ${counts.size} owners`);
   const markers = [];
-  for (const [owner, commits] of owners) {
+  for (const [owner, stats] of owners) {
     const location = await getOwnerLocation(owner).then(geocode);
     console.log(`Located ${owner}: ${location ? location.join(', ') : 'unknown'}`);
-    if (location) markers.push({ owner, commits, location });
+    if (location) markers.push({
+      owner,
+      commits: stats.commits,
+      location,
+      repositories: [...stats.repositories].sort().map((fullName) => ({
+        name: fullName.split('/').slice(1).join('/'),
+        url: `https://github.com/${fullName}`,
+      })),
+    });
   }
   const geojson = await fetchJSON(WORLD_GEOJSON_URL, { 'User-Agent': 'cobe-github-profile-badge/1.0' });
   fs.writeFileSync('data.json', JSON.stringify({
