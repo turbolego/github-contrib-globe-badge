@@ -7,9 +7,6 @@ const CX = SIZE / 2;
 const CY = SIZE / 2;
 const RADIUS = 238;
 const WORLD_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
-const REPOSITORY_ALIASES = {
-  'xDweeb/HermesUnchained': 'diegosouzapw/OmniRoute',
-};
 
 function fetchJSONOnce(url, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -50,6 +47,15 @@ function githubHeaders() {
 }
 
 async function getContributions(user) {
+  const commitCandidates = new Map();
+  const repositoryDates = new Map();
+  async function getRepositoryCreatedAt(fullName) {
+    if (!repositoryDates.has(fullName)) {
+      const repository = await fetchJSON(`https://api.github.com/repos/${fullName}`, githubHeaders());
+      repositoryDates.set(fullName, repository.created_at || '9999-12-31T23:59:59Z');
+    }
+    return repositoryDates.get(fullName);
+  }
   const counts = new Map();
   let total = 0;
 
@@ -68,18 +74,34 @@ async function getContributions(user) {
     }
     const items = data.items || [];
     for (const item of items) {
-      const indexedName = item.repository?.full_name;
-      if (!indexedName) continue;
-      const fullName = REPOSITORY_ALIASES[indexedName] || indexedName;
-      const owner = fullName.split('/')[0];
+      const fullName = item.repository?.full_name;
+      const sha = item.sha;
+      if (!fullName || !sha) continue;
+      if (!commitCandidates.has(sha)) commitCandidates.set(sha, new Set());
+      commitCandidates.get(sha).add(fullName);
+    }
+    if (items.length < 100) break;
+  }
+
+  for (const [sha, candidates] of commitCandidates) {
+    let selected = null;
+    let selectedDate = null;
+    for (const fullName of candidates) {
+      const createdAt = await getRepositoryCreatedAt(fullName);
+      if (selected === null || createdAt < selectedDate || (createdAt === selectedDate && fullName < selected)) {
+        selected = fullName;
+        selectedDate = createdAt;
+      }
+    }
+    if (!selected) continue;
+    const owner = selected.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
       const ownerStats = counts.get(owner);
       ownerStats.commits += 1;
-      ownerStats.repositories.add(fullName);
+      ownerStats.repositories.add(selected);
       total += 1;
-    }
-    if (items.length < 100) break;
+      console.log(`Commit ${sha.slice(0, 8)} attributed to ${selected}`);
   }
 
   return { counts, total };
