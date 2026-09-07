@@ -1,6 +1,6 @@
 import fs from 'fs';
 import https from 'https';
-import { createGlobe } from 'cobe';
+import createGlobe from 'cobe';
 import { createCanvas } from 'canvas';
 
 function fetchJSON(url, headers = {}) {
