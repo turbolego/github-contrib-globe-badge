@@ -2,6 +2,8 @@
 
 A **dynamic** badge that can be placed in any GitHub profile `README.md`. It visualises **where the owners of the repositories you contribute to are located**, using the tiny‑dependency globe from [shuding/cobe](https://github.com/shuding/cobe).
 
+![My contributions badge](https://raw.githubusercontent.com/turbolego/cobe-github-profile-badge/main/badge.svg)
+
 ## How it works
 1. **GitHub API** – searches commits authored by the badge owner (since 2023) to collect the set of repositories you have contributed to.
 2. **Owner lookup** – for each distinct repository owner, the public `location` field from the GitHub user profile is fetched.
