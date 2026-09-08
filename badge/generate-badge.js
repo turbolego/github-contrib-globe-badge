@@ -112,6 +112,52 @@ function loadCommitCache() {
   }
 }
 
+function addDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function midpointDate(fromDate, toDate) {
+  const from = new Date(`${fromDate}T00:00:00Z`).getTime();
+  const to = new Date(`${toDate}T00:00:00Z`).getTime();
+  return new Date(from + Math.floor((to - from) / 2)).toISOString().slice(0, 10);
+}
+
+// GitHub's search API refuses to paginate past 1000 results for a single
+// query, so a query matching more than that would silently drop the rest.
+// Splitting the author-date range in half and recursing (only when needed)
+// keeps each query's total_count under the cap while still covering the
+// account's entire history.
+async function fetchAllCommitItems(baseQuery, fromDate, toDate) {
+  const items = [];
+  async function fetchRange(from, to) {
+    const q = encodeURIComponent(`${baseQuery} author-date:${from}..${to}`);
+    const first = await searchCommits(`${q}&page=1`);
+    const totalCount = first.total_count || 0;
+    if (totalCount === 0) return;
+
+    if (totalCount > 1000 && from !== to) {
+      const mid = midpointDate(from, to);
+      await fetchRange(from, mid);
+      await fetchRange(addDays(mid, 1), to);
+      return;
+    }
+
+    items.push(...(first.items || []));
+    if (totalCount > 1000) {
+      console.warn(`${totalCount} commits on ${from} exceed the search API's 1000-result cap; some may be missed.`);
+    }
+    const pages = Math.min(10, Math.ceil(totalCount / 100));
+    for (let page = 2; page <= pages; page += 1) {
+      const data = await searchCommits(`${q}&page=${page}`);
+      items.push(...(data.items || []));
+    }
+  }
+  await fetchRange(fromDate, toDate);
+  return items;
+}
+
 async function getContributions(user, commitCache) {
   // Cache for repository metadata (repos API — 5000 req/hour limit).
   // Failures are NOT cached, so a transient error can be retried on a later
@@ -190,49 +236,43 @@ async function getContributions(user, commitCache) {
       return null;
     });
   const sinceDate = accountCreatedAt ? accountCreatedAt.slice(0, 10) : '2023-01-01';
+  const untilDate = new Date().toISOString().slice(0, 10);
 
   const counts = new Map();
   const seenShas = new Set();
   let total = 0;
   const now = Date.now();
 
-  for (let page = 1; page <= 3; page += 1) {
-    const q = `${encodeURIComponent(`author:${user} author-date:>${sinceDate} is:public`)}&page=${page}`;
-    let data;
-    try {
-      data = await searchCommits(q);
-    } catch (error) {
-      if (page === 1) throw error;
-      console.warn(`Stopping commit pagination at page ${page}: ${error.message}`);
-      break;
-    }
-    const items = data.items || [];
-    for (const item of items) {
-      const fullName = item.repository?.full_name;
-      const sha = item.sha;
-      if (!fullName || !sha) continue;
-      if (seenShas.has(sha)) continue;
-      seenShas.add(sha);
+  // `-user:${user}` excludes repos the user owns directly at the query
+  // level, since those are never counted as external contributions anyway
+  // — this cuts the result set (and thus the API calls needed) drastically
+  // and keeps it well under the search API's 1000-result cap in practice.
+  const baseQuery = `author:${user} is:public -user:${user}`;
+  const items = await fetchAllCommitItems(baseQuery, sinceDate, untilDate);
+  for (const item of items) {
+    const fullName = item.repository?.full_name;
+    const sha = item.sha;
+    if (!fullName || !sha) continue;
+    if (seenShas.has(sha)) continue;
+    seenShas.add(sha);
 
-      const cached = commitCache[sha];
-      let originRepo;
-      if (cached && now - cached.resolvedAt < ORIGIN_CACHE_TTL_MS) {
-        originRepo = cached.origin;
-      } else {
-        originRepo = await resolveOriginRepo(fullName, sha);
-        commitCache[sha] = { origin: originRepo, resolvedAt: now };
-      }
-
-      const owner = originRepo.split('/')[0];
-      if (owner === user) continue;
-      if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
-      const ownerStats = counts.get(owner);
-      ownerStats.commits += 1;
-      ownerStats.repositories.add(originRepo);
-      total += 1;
-      console.log(`Commit ${sha.slice(0, 8)} attributed to ${originRepo}`);
+    const cached = commitCache[sha];
+    let originRepo;
+    if (cached && now - cached.resolvedAt < ORIGIN_CACHE_TTL_MS) {
+      originRepo = cached.origin;
+    } else {
+      originRepo = await resolveOriginRepo(fullName, sha);
+      commitCache[sha] = { origin: originRepo, resolvedAt: now };
     }
-    if (items.length < 100) break;
+
+    const owner = originRepo.split('/')[0];
+    if (owner === user) continue;
+    if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
+    const ownerStats = counts.get(owner);
+    ownerStats.commits += 1;
+    ownerStats.repositories.add(originRepo);
+    total += 1;
+    console.log(`Commit ${sha.slice(0, 8)} attributed to ${originRepo}`);
   }
 
   return { counts, total };
