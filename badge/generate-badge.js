@@ -45,7 +45,7 @@ async function fetchJSON(url, headers = {}) {
 function githubHeaders() {
   return {
     Accept: 'application/vnd.github+json',
-    'User-Agent': 'cobe-github-profile-badge',
+    'User-Agent': 'github-contrib-globe-badge',
     ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
   };
 }
@@ -172,7 +172,7 @@ async function geocode(location) {
   if (!location) return null;
   const result = await fetchJSON(
     `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`,
-    { 'User-Agent': 'cobe-github-profile-badge/1.0' },
+    { 'User-Agent': 'github-contrib-globe-badge/1.0' },
   );
   if (!result[0]) return null;
   return [+result[0].lat, +result[0].lon];
@@ -377,7 +377,7 @@ async function main() {
       })),
     });
   }
-  const geojson = await fetchJSON(WORLD_GEOJSON_URL, { 'User-Agent': 'cobe-github-profile-badge/1.0' });
+  const geojson = await fetchJSON(WORLD_GEOJSON_URL, { 'User-Agent': 'github-contrib-globe-badge/1.0' });
   fs.writeFileSync('data.json', JSON.stringify({
     user: USER,
     generatedAt: new Date().toISOString(),
