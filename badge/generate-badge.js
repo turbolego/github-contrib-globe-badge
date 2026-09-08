@@ -51,7 +51,26 @@ function githubHeaders() {
 }
 
 async function getContributions(user) {
+  // Resolve a repository to its canonical (non-fork) source using the repos
+  // API (5000 req/hour limit), NOT the search API (30 req/min) that caused
+  // 403 rate-limit errors in the previous per-SHA approach.
+  const repoCache = new Map();
+  async function resolveRepository(fullName) {
+    if (repoCache.has(fullName)) return repoCache.get(fullName);
+    try {
+      const repo = await fetchJSON(`https://api.github.com/repos/${fullName}`, githubHeaders());
+      const resolved = (repo.fork && repo.source?.full_name) ? repo.source.full_name : fullName;
+      repoCache.set(fullName, resolved);
+      return resolved;
+    } catch (error) {
+      console.warn(`Could not resolve repository ${fullName}: ${error.message}`);
+      repoCache.set(fullName, fullName);
+      return fullName;
+    }
+  }
+
   const counts = new Map();
+  const seenShas = new Set();
   let total = 0;
 
   for (let page = 1; page <= 3; page += 1) {
@@ -72,14 +91,22 @@ async function getContributions(user) {
       const fullName = item.repository?.full_name;
       const sha = item.sha;
       if (!fullName || !sha) continue;
-      const owner = fullName.split('/')[0];
+      // Deduplicate by SHA — the same commit may appear in both the original
+      // repo and its forks. First occurrence wins; fork resolution ensures we
+      // attribute it to the original repository regardless of which copy the
+      // search returned first.
+      if (seenShas.has(sha)) continue;
+      seenShas.add(sha);
+
+      const resolvedName = await resolveRepository(fullName);
+      const owner = resolvedName.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
       const ownerStats = counts.get(owner);
       ownerStats.commits += 1;
-      ownerStats.repositories.add(fullName);
+      ownerStats.repositories.add(resolvedName);
       total += 1;
-      console.log(`Commit ${sha.slice(0, 8)} attributed to ${fullName}`);
+      console.log(`Commit ${sha.slice(0, 8)} attributed to ${resolvedName}`);
     }
     if (items.length < 100) break;
   }
