@@ -1,8 +1,22 @@
 {
   "user": "turbolego",
-  "generatedAt": "2026-09-08T07:20:59.672Z",
-  "totalCommits": 13,
+  "generatedAt": "2026-09-08T07:44:33.120Z",
+  "totalCommits": 159,
   "markers": [
+    {
+      "owner": "Experis",
+      "commits": 11,
+      "location": [
+        61.1529386,
+        8.7876653
+      ],
+      "repositories": [
+        {
+          "name": ".github",
+          "url": "https://github.com/Experis/.github"
+        }
+      ]
+    },
     {
       "owner": "diegosouzapw",
       "commits": 6,
@@ -18,6 +32,56 @@
       ]
     },
     {
+      "owner": "TurboDevsAS",
+      "commits": 4,
+      "location": [
+        59.9133301,
+        10.7389701
+      ],
+      "repositories": [
+        {
+          "name": ".github",
+          "url": "https://github.com/TurboDevsAS/.github"
+        },
+        {
+          "name": "BlissBrain_TimeCrisis_Prototype_SpillExpo",
+          "url": "https://github.com/TurboDevsAS/BlissBrain_TimeCrisis_Prototype_SpillExpo"
+        },
+        {
+          "name": "EEGBliss",
+          "url": "https://github.com/TurboDevsAS/EEGBliss"
+        }
+      ]
+    },
+    {
+      "owner": "criger",
+      "commits": 4,
+      "location": [
+        61.1529386,
+        8.7876653
+      ],
+      "repositories": [
+        {
+          "name": "Agentic-Ground-Rules",
+          "url": "https://github.com/criger/Agentic-Ground-Rules"
+        }
+      ]
+    },
+    {
+      "owner": "tvibitnmkt",
+      "commits": 3,
+      "location": [
+        69.6516345,
+        18.9558585
+      ],
+      "repositories": [
+        {
+          "name": "WhaleGuruVR",
+          "url": "https://github.com/tvibitnmkt/WhaleGuruVR"
+        }
+      ]
+    },
+    {
       "owner": "progrium",
       "commits": 2,
       "location": [
@@ -28,62 +92,6 @@
         {
           "name": "authsite",
           "url": "https://github.com/progrium/authsite"
-        }
-      ]
-    },
-    {
-      "owner": "qualweb",
-      "commits": 2,
-      "location": [
-        38.7077507,
-        -9.1365919
-      ],
-      "repositories": [
-        {
-          "name": "qualweb",
-          "url": "https://github.com/qualweb/qualweb"
-        }
-      ]
-    },
-    {
-      "owner": "RightNow-AI",
-      "commits": 1,
-      "location": [
-        31.1667049,
-        36.941628
-      ],
-      "repositories": [
-        {
-          "name": "openfang",
-          "url": "https://github.com/RightNow-AI/openfang"
-        }
-      ]
-    },
-    {
-      "owner": "kyzdes",
-      "commits": 1,
-      "location": [
-        42.2885656,
-        18.8419505
-      ],
-      "repositories": [
-        {
-          "name": "fang-upgrade",
-          "url": "https://github.com/kyzdes/fang-upgrade"
-        }
-      ]
-    },
-    {
-      "owner": "TurboDevsAS",
-      "commits": 1,
-      "location": [
-        59.9133301,
-        10.7389701
-      ],
-      "repositories": [
-        {
-          "name": "EEGBliss",
-          "url": "https://github.com/TurboDevsAS/EEGBliss"
         }
       ]
     }
