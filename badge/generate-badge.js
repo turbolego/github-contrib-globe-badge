@@ -8,8 +8,8 @@ const SIZE = 520;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const RADIUS = 238;
-const FRAMES = 60;
-const FRAME_DELAY = 50; // ms — 60 frames × 50ms = 3s per rotation
+const FRAMES = 120;
+const FRAME_DELAY = 50; // ms — 120 frames × 50ms = 6s per rotation (50% slower)
 const WORLD_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
 
 function fetchJSONOnce(url, headers = {}) {
@@ -51,22 +51,67 @@ function githubHeaders() {
 }
 
 async function getContributions(user) {
-  // Resolve a repository to its canonical (non-fork) source using the repos
-  // API (5000 req/hour limit), NOT the search API (30 req/min) that caused
-  // 403 rate-limit errors in the previous per-SHA approach.
+  // Cache for repository metadata (repos API — 5000 req/hour limit).
   const repoCache = new Map();
-  async function resolveRepository(fullName) {
+  async function getRepositoryInfo(fullName) {
     if (repoCache.has(fullName)) return repoCache.get(fullName);
     try {
       const repo = await fetchJSON(`https://api.github.com/repos/${fullName}`, githubHeaders());
-      const resolved = (repo.fork && repo.source?.full_name) ? repo.source.full_name : fullName;
-      repoCache.set(fullName, resolved);
-      return resolved;
+      repoCache.set(fullName, repo);
+      return repo;
     } catch (error) {
-      console.warn(`Could not resolve repository ${fullName}: ${error.message}`);
-      repoCache.set(fullName, fullName);
-      return fullName;
+      console.warn(`Could not fetch repository ${fullName}: ${error.message}`);
+      repoCache.set(fullName, null);
+      return null;
     }
+  }
+
+  // Find the oldest repository containing a given commit SHA.
+  // Uses the search API (30 req/min) with a 2-second delay between calls
+  // and NO retries on 403, to avoid the rate-limit errors from the original
+  // per-SHA approach. Also resolves GitHub forks to their source.
+  async function findOldestRepoForSha(sha, knownRepo) {
+    // Fast path: if the known repo is a GitHub fork, resolve to its source.
+    const knownInfo = await getRepositoryInfo(knownRepo);
+    if (knownInfo?.fork && knownInfo.source?.full_name) {
+      return knownInfo.source.full_name;
+    }
+
+    // Search for all public repos containing this SHA (rate-limited).
+    const repos = new Set([knownRepo]);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const data = await fetchJSONOnce(
+        `https://api.github.com/search/commits?q=sha%3A${encodeURIComponent(sha)}+is:public&per_page=100`,
+        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
+      );
+      for (const item of data.items || []) {
+        if (item.repository?.full_name) repos.add(item.repository.full_name);
+      }
+    } catch (error) {
+      console.warn(`Could not search repositories for commit ${sha.slice(0, 8)}: ${error.message}`);
+    }
+
+    // Also add fork sources for any repos found.
+    for (const repoName of [...repos]) {
+      const info = await getRepositoryInfo(repoName);
+      if (info?.fork && info.source?.full_name) {
+        repos.add(info.source.full_name);
+      }
+    }
+
+    // Pick the oldest repo by creation date.
+    let oldest = null;
+    let oldestDate = null;
+    for (const repoName of repos) {
+      const info = await getRepositoryInfo(repoName);
+      const createdAt = info?.created_at || '9999-12-31T23:59:59Z';
+      if (oldest === null || createdAt < oldestDate) {
+        oldest = repoName;
+        oldestDate = createdAt;
+      }
+    }
+    return oldest || knownRepo;
   }
 
   const counts = new Map();
@@ -91,22 +136,18 @@ async function getContributions(user) {
       const fullName = item.repository?.full_name;
       const sha = item.sha;
       if (!fullName || !sha) continue;
-      // Deduplicate by SHA — the same commit may appear in both the original
-      // repo and its forks. First occurrence wins; fork resolution ensures we
-      // attribute it to the original repository regardless of which copy the
-      // search returned first.
       if (seenShas.has(sha)) continue;
       seenShas.add(sha);
 
-      const resolvedName = await resolveRepository(fullName);
-      const owner = resolvedName.split('/')[0];
+      const oldestRepo = await findOldestRepoForSha(sha, fullName);
+      const owner = oldestRepo.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
       const ownerStats = counts.get(owner);
       ownerStats.commits += 1;
-      ownerStats.repositories.add(resolvedName);
+      ownerStats.repositories.add(oldestRepo);
       total += 1;
-      console.log(`Commit ${sha.slice(0, 8)} attributed to ${resolvedName}`);
+      console.log(`Commit ${sha.slice(0, 8)} attributed to ${oldestRepo}`);
     }
     if (items.length < 100) break;
   }
