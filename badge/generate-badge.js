@@ -3,7 +3,7 @@ import https from 'https';
 import { createCanvas } from 'canvas';
 import GIFEncoder from 'gif-encoder-2';
 
-const USER = process.env.GITHUB_ACTOR || 'kveita';
+const USER = process.env.GITHUB_ACTOR;
 const SIZE = 520;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
