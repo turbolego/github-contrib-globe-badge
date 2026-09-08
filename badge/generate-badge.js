@@ -19,7 +19,13 @@ function fetchJSONOnce(url, headers = {}) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`GET ${url} returned ${res.statusCode}`));
+          const error = new Error(`GET ${url} returned ${res.statusCode}`);
+          error.status = res.statusCode;
+          const retryAfter = res.headers['retry-after'];
+          const resetHeader = res.headers['x-ratelimit-reset'];
+          if (retryAfter) error.retryAfterMs = Number(retryAfter) * 1000;
+          else if (resetHeader) error.retryAfterMs = Math.max(0, Number(resetHeader) * 1000 - Date.now());
+          reject(error);
           return;
         }
         try { resolve(JSON.parse(data)); }
@@ -31,12 +37,18 @@ function fetchJSONOnce(url, headers = {}) {
 
 async function fetchJSON(url, headers = {}) {
   let lastError;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       return await fetchJSONOnce(url, headers);
     } catch (error) {
       lastError = error;
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      const isRateLimited = error.status === 403 || error.status === 429;
+      if (attempt < 4) {
+        const waitMs = isRateLimited && error.retryAfterMs
+          ? error.retryAfterMs + 500
+          : 1000 * (attempt + 1);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
     }
   }
   throw lastError;
@@ -48,6 +60,41 @@ function githubHeaders() {
     'User-Agent': 'github-contrib-globe-badge',
     ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
   };
+}
+
+// Throttles calls to a shared budget within a rolling time window.
+class RateLimiter {
+  constructor(maxCalls, windowMs) {
+    this.maxCalls = maxCalls;
+    this.windowMs = windowMs;
+    this.timestamps = [];
+  }
+
+  async wait() {
+    const now = Date.now();
+    this.timestamps = this.timestamps.filter((t) => now - t < this.windowMs);
+    if (this.timestamps.length >= this.maxCalls) {
+      const waitMs = this.windowMs - (now - this.timestamps[0]) + 250;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      return this.wait();
+    }
+    this.timestamps.push(Date.now());
+    return undefined;
+  }
+}
+
+// GitHub's commits search endpoint is capped at 30 requests/min regardless of
+// token, and that budget is shared by both listing the user's commits and
+// looking up which other repositories contain a given SHA — so every call to
+// it must go through the same limiter or the two use sites starve each other.
+const commitsSearchLimiter = new RateLimiter(25, 60_000);
+
+async function searchCommits(query) {
+  await commitsSearchLimiter.wait();
+  return fetchJSON(
+    `https://api.github.com/search/commits?q=${query}&per_page=100`,
+    { ...githubHeaders(), Accept: 'application/vnd.github+json' },
+  );
 }
 
 async function getContributions(user) {
@@ -63,25 +110,21 @@ async function getContributions(user) {
   }
 
   // Resolve the oldest repository that shares history with `fullName`.
-  // GitHub forks are cheap to resolve via the `source` field, but plenty of
-  // repos duplicate another repo's commits (same SHAs) without being a
-  // registered GitHub fork (e.g. a raw clone pushed to a new repo) — those
-  // can only be found via the commits search API. Results are cached per
-  // repository (not per commit), so this search runs at most once per
-  // distinct repository instead of once per commit, which is what made the
-  // original approach slow and prone to secondary rate-limit (403) errors.
+  // A repo duplicating another repo's commits (same SHAs) is treated as a
+  // copy of the original regardless of whether GitHub marks it as a fork —
+  // plenty of repos are seeded from a full clone of another repo's history
+  // without going through GitHub's fork feature. All candidates sharing a
+  // SHA are found via the commits search API and the oldest (by creation
+  // date) is kept as the origin. Results are cached per repository (not per
+  // commit), so this search runs at most once per distinct repository
+  // instead of once per commit.
   const originCache = new Map();
   async function resolveOriginRepo(fullName, sha) {
     if (originCache.has(fullName)) return originCache.get(fullName);
 
     const candidates = new Set([fullName]);
     try {
-      // GitHub search API is limited to 30 requests/min even with a token.
-      await new Promise((resolve) => setTimeout(resolve, 2200));
-      const data = await fetchJSON(
-        `https://api.github.com/search/commits?q=sha%3A${encodeURIComponent(sha)}+is:public&per_page=100`,
-        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
-      );
+      const data = await searchCommits(`sha%3A${encodeURIComponent(sha)}+is:public`);
       for (const item of data.items || []) {
         if (item.repository?.full_name) candidates.add(item.repository.full_name);
       }
@@ -89,7 +132,7 @@ async function getContributions(user) {
       console.warn(`Could not search repositories for commit ${sha.slice(0, 8)}: ${error.message}`);
     }
 
-    // Expand fork networks — a candidate that's a GitHub fork points at its ultimate origin.
+    // Expand fork networks too — a candidate that's a GitHub fork points at its ultimate origin.
     for (const name of [...candidates]) {
       try {
         const info = await getRepositoryInfo(name);
@@ -127,13 +170,10 @@ async function getContributions(user) {
   let total = 0;
 
   for (let page = 1; page <= 3; page += 1) {
-    const q = encodeURIComponent(`author:${user} author-date:>2023-01-01 is:public`);
+    const q = `${encodeURIComponent(`author:${user} author-date:>2023-01-01 is:public`)}&page=${page}`;
     let data;
     try {
-      data = await fetchJSON(
-        `https://api.github.com/search/commits?q=${q}&per_page=100&page=${page}`,
-        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
-      );
+      data = await searchCommits(q);
     } catch (error) {
       if (page === 1) throw error;
       console.warn(`Stopping commit pagination at page ${page}: ${error.message}`);
