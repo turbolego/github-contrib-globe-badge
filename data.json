@@ -1,63 +1,6 @@
 {
   "user": "turbolego",
-  "generatedAt": "2026-09-08T05:52:14.543Z",
-  "totalCommits": 6,
-  "markers": [
-    {
-      "owner": "progrium",
-      "commits": 2,
-      "location": [
-        37.8044557,
-        -122.271356
-      ],
-      "repositories": [
-        {
-          "name": "authsite",
-          "url": "https://github.com/progrium/authsite"
-        }
-      ]
-    },
-    {
-      "owner": "qualweb",
-      "commits": 2,
-      "location": [
-        38.7077507,
-        -9.1365919
-      ],
-      "repositories": [
-        {
-          "name": "qualweb",
-          "url": "https://github.com/qualweb/qualweb"
-        }
-      ]
-    },
-    {
-      "owner": "diegosouzapw",
-      "commits": 1,
-      "location": [
-        -23.5506507,
-        -46.6333824
-      ],
-      "repositories": [
-        {
-          "name": "OmniRoute",
-          "url": "https://github.com/diegosouzapw/OmniRoute"
-        }
-      ]
-    },
-    {
-      "owner": "RightNow-AI",
-      "commits": 1,
-      "location": [
-        31.1667049,
-        36.941628
-      ],
-      "repositories": [
-        {
-          "name": "openfang",
-          "url": "https://github.com/RightNow-AI/openfang"
-        }
-      ]
-    }
-  ]
+  "generatedAt": "2026-09-08T07:10:20.051Z",
+  "totalCommits": 0,
+  "markers": []
 }
