@@ -52,66 +52,32 @@ function githubHeaders() {
 
 async function getContributions(user) {
   // Cache for repository metadata (repos API — 5000 req/hour limit).
+  // Failures are NOT cached, so a transient error can be retried on a later
+  // reference to the same repo instead of permanently poisoning the result.
   const repoCache = new Map();
   async function getRepositoryInfo(fullName) {
     if (repoCache.has(fullName)) return repoCache.get(fullName);
-    try {
-      const repo = await fetchJSON(`https://api.github.com/repos/${fullName}`, githubHeaders());
-      repoCache.set(fullName, repo);
-      return repo;
-    } catch (error) {
-      console.warn(`Could not fetch repository ${fullName}: ${error.message}`);
-      repoCache.set(fullName, null);
-      return null;
-    }
+    const repo = await fetchJSON(`https://api.github.com/repos/${fullName}`, githubHeaders());
+    repoCache.set(fullName, repo);
+    return repo;
   }
 
-  // Find the oldest repository containing a given commit SHA.
-  // Uses the search API (30 req/min) with a 2-second delay between calls
-  // and NO retries on 403, to avoid the rate-limit errors from the original
-  // per-SHA approach. Also resolves GitHub forks to their source.
-  async function findOldestRepoForSha(sha, knownRepo) {
-    // Fast path: if the known repo is a GitHub fork, resolve to its source.
-    const knownInfo = await getRepositoryInfo(knownRepo);
-    if (knownInfo?.fork && knownInfo.source?.full_name) {
-      return knownInfo.source.full_name;
-    }
-
-    // Search for all public repos containing this SHA (rate-limited).
-    const repos = new Set([knownRepo]);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Resolve a repository to the root of its fork network with a single API
+  // call — GitHub's `source` field already points at the ultimate non-fork
+  // origin, so no per-SHA search/date-comparison is needed. This replaces
+  // the previous approach of querying the commits search API (30 req/min)
+  // once per commit, which was slow and prone to secondary rate-limit (403)
+  // errors under load. If the repo can't be verified, the commit is skipped
+  // rather than risking attribution to a fork (the source of the reported bug).
+  async function resolveOriginRepo(fullName) {
     try {
-      const data = await fetchJSONOnce(
-        `https://api.github.com/search/commits?q=sha%3A${encodeURIComponent(sha)}+is:public&per_page=100`,
-        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
-      );
-      for (const item of data.items || []) {
-        if (item.repository?.full_name) repos.add(item.repository.full_name);
-      }
+      const info = await getRepositoryInfo(fullName);
+      if (info?.fork && info.source?.full_name) return info.source.full_name;
+      return fullName;
     } catch (error) {
-      console.warn(`Could not search repositories for commit ${sha.slice(0, 8)}: ${error.message}`);
+      console.warn(`Could not resolve origin repository for ${fullName}: ${error.message}`);
+      return null;
     }
-
-    // Also add fork sources for any repos found.
-    for (const repoName of [...repos]) {
-      const info = await getRepositoryInfo(repoName);
-      if (info?.fork && info.source?.full_name) {
-        repos.add(info.source.full_name);
-      }
-    }
-
-    // Pick the oldest repo by creation date.
-    let oldest = null;
-    let oldestDate = null;
-    for (const repoName of repos) {
-      const info = await getRepositoryInfo(repoName);
-      const createdAt = info?.created_at || '9999-12-31T23:59:59Z';
-      if (oldest === null || createdAt < oldestDate) {
-        oldest = repoName;
-        oldestDate = createdAt;
-      }
-    }
-    return oldest || knownRepo;
   }
 
   const counts = new Map();
@@ -139,15 +105,16 @@ async function getContributions(user) {
       if (seenShas.has(sha)) continue;
       seenShas.add(sha);
 
-      const oldestRepo = await findOldestRepoForSha(sha, fullName);
-      const owner = oldestRepo.split('/')[0];
+      const originRepo = await resolveOriginRepo(fullName);
+      if (!originRepo) continue;
+      const owner = originRepo.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
       const ownerStats = counts.get(owner);
       ownerStats.commits += 1;
-      ownerStats.repositories.add(oldestRepo);
+      ownerStats.repositories.add(originRepo);
       total += 1;
-      console.log(`Commit ${sha.slice(0, 8)} attributed to ${oldestRepo}`);
+      console.log(`Commit ${sha.slice(0, 8)} attributed to ${originRepo}`);
     }
     if (items.length < 100) break;
   }
