@@ -97,7 +97,22 @@ async function searchCommits(query) {
   );
 }
 
-async function getContributions(user) {
+const COMMIT_CACHE_PATH = 'commit-cache.json';
+// A cached commit->origin mapping is trusted for this long before being
+// re-resolved, since a repository that is private today (and thus invisible
+// to the search API) can turn public later and turn out to be the true,
+// older origin of a commit we already attributed elsewhere.
+const ORIGIN_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function loadCommitCache() {
+  try {
+    return JSON.parse(fs.readFileSync(COMMIT_CACHE_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+async function getContributions(user, commitCache) {
   // Cache for repository metadata (repos API — 5000 req/hour limit).
   // Failures are NOT cached, so a transient error can be retried on a later
   // reference to the same repo instead of permanently poisoning the result.
@@ -165,12 +180,24 @@ async function getContributions(user) {
     return resolved;
   }
 
+  // Search no further back than the account's own creation date — commits
+  // authored before the account existed cannot belong to it. Falls back to
+  // the previous hardcoded date if the account lookup fails for any reason.
+  const accountCreatedAt = await fetchJSON(`https://api.github.com/users/${encodeURIComponent(user)}`, githubHeaders())
+    .then((info) => info.created_at)
+    .catch((error) => {
+      console.warn(`Could not fetch account creation date for ${user}: ${error.message}`);
+      return null;
+    });
+  const sinceDate = accountCreatedAt ? accountCreatedAt.slice(0, 10) : '2023-01-01';
+
   const counts = new Map();
   const seenShas = new Set();
   let total = 0;
+  const now = Date.now();
 
   for (let page = 1; page <= 3; page += 1) {
-    const q = `${encodeURIComponent(`author:${user} author-date:>2023-01-01 is:public`)}&page=${page}`;
+    const q = `${encodeURIComponent(`author:${user} author-date:>${sinceDate} is:public`)}&page=${page}`;
     let data;
     try {
       data = await searchCommits(q);
@@ -187,7 +214,15 @@ async function getContributions(user) {
       if (seenShas.has(sha)) continue;
       seenShas.add(sha);
 
-      const originRepo = await resolveOriginRepo(fullName, sha);
+      const cached = commitCache[sha];
+      let originRepo;
+      if (cached && now - cached.resolvedAt < ORIGIN_CACHE_TTL_MS) {
+        originRepo = cached.origin;
+      } else {
+        originRepo = await resolveOriginRepo(fullName, sha);
+        commitCache[sha] = { origin: originRepo, resolvedAt: now };
+      }
+
       const owner = originRepo.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
@@ -400,7 +435,11 @@ function renderFrame(ctx, centerLonDeg, landGrid, markers, total) {
 }
 
 async function main() {
-  const { counts, total } = await getContributions(USER);
+  const commitCache = loadCommitCache();
+  const { counts, total } = await getContributions(USER, commitCache);
+  // Persist right away so already-resolved commits are saved even if a
+  // later step (geocoding, GIF rendering) fails on this run.
+  fs.writeFileSync(COMMIT_CACHE_PATH, JSON.stringify(commitCache, null, 2));
   const owners = [...counts.entries()].sort((a, b) => b[1].commits - a[1].commits).slice(0, 8);
   console.log(`Found ${total} commits across ${counts.size} owners`);
   const markers = [];
