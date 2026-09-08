@@ -1,103 +1,49 @@
 {
-  "user": "turbolego",
-  "generatedAt": "2026-09-07T21:27:34.771Z",
-  "totalCommits": 13,
+  "user": "kveita",
+  "generatedAt": "2026-09-08T03:38:15.966Z",
+  "totalCommits": 41,
   "markers": [
     {
-      "owner": "progrium",
+      "owner": "turbolego",
+      "commits": 35,
+      "location": [
+        59.9685301,
+        10.4690248
+      ],
+      "repositories": [
+        {
+          "name": "HololensAirplaneViewer",
+          "url": "https://github.com/turbolego/HololensAirplaneViewer"
+        },
+        {
+          "name": "HololensIKEA",
+          "url": "https://github.com/turbolego/HololensIKEA"
+        },
+        {
+          "name": "RullUt",
+          "url": "https://github.com/turbolego/RullUt"
+        },
+        {
+          "name": "Tilgjengelighet-WMS-OpenLayers",
+          "url": "https://github.com/turbolego/Tilgjengelighet-WMS-OpenLayers"
+        },
+        {
+          "name": "iPad2Spotify",
+          "url": "https://github.com/turbolego/iPad2Spotify"
+        }
+      ]
+    },
+    {
+      "owner": "criger",
       "commits": 2,
       "location": [
-        37.8044557,
-        -122.271356
+        61.1529386,
+        8.7876653
       ],
       "repositories": [
         {
-          "name": "authsite",
-          "url": "https://github.com/progrium/authsite"
-        }
-      ]
-    },
-    {
-      "owner": "qualweb",
-      "commits": 2,
-      "location": [
-        38.7077507,
-        -9.1365919
-      ],
-      "repositories": [
-        {
-          "name": "qualweb",
-          "url": "https://github.com/qualweb/qualweb"
-        }
-      ]
-    },
-    {
-      "owner": "diegosouzapw",
-      "commits": 1,
-      "location": [
-        -23.5506507,
-        -46.6333824
-      ],
-      "repositories": [
-        {
-          "name": "OmniRoute",
-          "url": "https://github.com/diegosouzapw/OmniRoute"
-        }
-      ]
-    },
-    {
-      "owner": "RightNow-AI",
-      "commits": 1,
-      "location": [
-        31.1667049,
-        36.941628
-      ],
-      "repositories": [
-        {
-          "name": "openfang",
-          "url": "https://github.com/RightNow-AI/openfang"
-        }
-      ]
-    },
-    {
-      "owner": "kyzdes",
-      "commits": 1,
-      "location": [
-        42.2885656,
-        18.8419505
-      ],
-      "repositories": [
-        {
-          "name": "fang-upgrade",
-          "url": "https://github.com/kyzdes/fang-upgrade"
-        }
-      ]
-    },
-    {
-      "owner": "xDweeb",
-      "commits": 1,
-      "location": [
-        28.3347722,
-        -10.3713379
-      ],
-      "repositories": [
-        {
-          "name": "HermesUnchained",
-          "url": "https://github.com/xDweeb/HermesUnchained"
-        }
-      ]
-    },
-    {
-      "owner": "TurboDevsAS",
-      "commits": 1,
-      "location": [
-        59.9133301,
-        10.7389701
-      ],
-      "repositories": [
-        {
-          "name": "EEGBliss",
-          "url": "https://github.com/TurboDevsAS/EEGBliss"
+          "name": "Agentic-Ground-Rules",
+          "url": "https://github.com/criger/Agentic-Ground-Rules"
         }
       ]
     }
