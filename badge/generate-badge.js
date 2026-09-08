@@ -62,22 +62,64 @@ async function getContributions(user) {
     return repo;
   }
 
-  // Resolve a repository to the root of its fork network with a single API
-  // call — GitHub's `source` field already points at the ultimate non-fork
-  // origin, so no per-SHA search/date-comparison is needed. This replaces
-  // the previous approach of querying the commits search API (30 req/min)
-  // once per commit, which was slow and prone to secondary rate-limit (403)
-  // errors under load. If the repo can't be verified, the commit is skipped
-  // rather than risking attribution to a fork (the source of the reported bug).
-  async function resolveOriginRepo(fullName) {
+  // Resolve the oldest repository that shares history with `fullName`.
+  // GitHub forks are cheap to resolve via the `source` field, but plenty of
+  // repos duplicate another repo's commits (same SHAs) without being a
+  // registered GitHub fork (e.g. a raw clone pushed to a new repo) — those
+  // can only be found via the commits search API. Results are cached per
+  // repository (not per commit), so this search runs at most once per
+  // distinct repository instead of once per commit, which is what made the
+  // original approach slow and prone to secondary rate-limit (403) errors.
+  const originCache = new Map();
+  async function resolveOriginRepo(fullName, sha) {
+    if (originCache.has(fullName)) return originCache.get(fullName);
+
+    const candidates = new Set([fullName]);
     try {
-      const info = await getRepositoryInfo(fullName);
-      if (info?.fork && info.source?.full_name) return info.source.full_name;
-      return fullName;
+      // GitHub search API is limited to 30 requests/min even with a token.
+      await new Promise((resolve) => setTimeout(resolve, 2200));
+      const data = await fetchJSON(
+        `https://api.github.com/search/commits?q=sha%3A${encodeURIComponent(sha)}+is:public&per_page=100`,
+        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
+      );
+      for (const item of data.items || []) {
+        if (item.repository?.full_name) candidates.add(item.repository.full_name);
+      }
     } catch (error) {
-      console.warn(`Could not resolve origin repository for ${fullName}: ${error.message}`);
-      return null;
+      console.warn(`Could not search repositories for commit ${sha.slice(0, 8)}: ${error.message}`);
     }
+
+    // Expand fork networks — a candidate that's a GitHub fork points at its ultimate origin.
+    for (const name of [...candidates]) {
+      try {
+        const info = await getRepositoryInfo(name);
+        if (info?.fork && info.source?.full_name) candidates.add(info.source.full_name);
+      } catch (error) {
+        console.warn(`Could not fetch repository ${name}: ${error.message}`);
+      }
+    }
+
+    // Pick the oldest candidate by creation date; unresolved repos are ignored.
+    let oldest = null;
+    let oldestDate = null;
+    for (const name of candidates) {
+      let info;
+      try {
+        info = await getRepositoryInfo(name);
+      } catch (error) {
+        console.warn(`Could not fetch repository ${name}: ${error.message}`);
+        continue;
+      }
+      if (!info?.created_at) continue;
+      if (oldest === null || info.created_at < oldestDate) {
+        oldest = name;
+        oldestDate = info.created_at;
+      }
+    }
+
+    const resolved = oldest || fullName;
+    originCache.set(fullName, resolved);
+    return resolved;
   }
 
   const counts = new Map();
@@ -105,8 +147,7 @@ async function getContributions(user) {
       if (seenShas.has(sha)) continue;
       seenShas.add(sha);
 
-      const originRepo = await resolveOriginRepo(fullName);
-      if (!originRepo) continue;
+      const originRepo = await resolveOriginRepo(fullName, sha);
       const owner = originRepo.split('/')[0];
       if (owner === user) continue;
       if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
