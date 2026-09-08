@@ -51,20 +51,11 @@ function githubHeaders() {
 }
 
 async function getContributions(user) {
-  const commitCandidates = new Map();
-  const repositoryDates = new Map();
-  async function getRepositoryCreatedAt(fullName) {
-    if (!repositoryDates.has(fullName)) {
-      const repository = await fetchJSON(`https://api.github.com/repos/${fullName}`, githubHeaders());
-      repositoryDates.set(fullName, repository.created_at || '9999-12-31T23:59:59Z');
-    }
-    return repositoryDates.get(fullName);
-  }
   const counts = new Map();
   let total = 0;
 
   for (let page = 1; page <= 3; page += 1) {
-    const q = encodeURIComponent(`author:${user} author-date:>2023-01-01`);
+    const q = encodeURIComponent(`author:${user} author-date:>2023-01-01 is:public`);
     let data;
     try {
       data = await fetchJSON(
@@ -81,49 +72,16 @@ async function getContributions(user) {
       const fullName = item.repository?.full_name;
       const sha = item.sha;
       if (!fullName || !sha) continue;
-      if (!commitCandidates.has(sha)) commitCandidates.set(sha, new Set());
-      commitCandidates.get(sha).add(fullName);
+      const owner = fullName.split('/')[0];
+      if (owner === user) continue;
+      if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
+      const ownerStats = counts.get(owner);
+      ownerStats.commits += 1;
+      ownerStats.repositories.add(fullName);
+      total += 1;
+      console.log(`Commit ${sha.slice(0, 8)} attributed to ${fullName}`);
     }
     if (items.length < 100) break;
-  }
-
-  // GitHub's author search may return only one repository for a commit that
-  // exists in several mirrors or forks. Search each SHA separately so the
-  // canonical repository can be selected by creation date.
-  for (const sha of commitCandidates.keys()) {
-    try {
-      const matches = await fetchJSON(
-        `https://api.github.com/search/commits?q=sha%3A${encodeURIComponent(sha)}&per_page=100`,
-        { ...githubHeaders(), Accept: 'application/vnd.github+json' },
-      );
-      for (const match of matches.items || []) {
-        const fullName = match.repository?.full_name;
-        if (fullName) commitCandidates.get(sha).add(fullName);
-      }
-    } catch (error) {
-      console.warn(`Could not expand repositories for commit ${sha.slice(0, 8)}: ${error.message}`);
-    }
-  }
-
-  for (const [sha, candidates] of commitCandidates) {
-    let selected = null;
-    let selectedDate = null;
-    for (const fullName of candidates) {
-      const createdAt = await getRepositoryCreatedAt(fullName);
-      if (selected === null || createdAt < selectedDate || (createdAt === selectedDate && fullName < selected)) {
-        selected = fullName;
-        selectedDate = createdAt;
-      }
-    }
-    if (!selected) continue;
-    const owner = selected.split('/')[0];
-    if (owner === user) continue;
-    if (!counts.has(owner)) counts.set(owner, { commits: 0, repositories: new Set() });
-    const ownerStats = counts.get(owner);
-    ownerStats.commits += 1;
-    ownerStats.repositories.add(selected);
-    total += 1;
-    console.log(`Commit ${sha.slice(0, 8)} attributed to ${selected}`);
   }
 
   return { counts, total };
