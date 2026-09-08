@@ -1,49 +1,75 @@
 {
-  "user": "kveita",
-  "generatedAt": "2026-09-08T03:38:15.966Z",
-  "totalCommits": 41,
+  "user": "turbolego",
+  "generatedAt": "2026-09-08T05:01:57.929Z",
+  "totalCommits": 19,
   "markers": [
     {
-      "owner": "turbolego",
-      "commits": 35,
+      "owner": "xDweeb",
+      "commits": 6,
       "location": [
-        59.9685301,
-        10.4690248
+        28.3347722,
+        -10.3713379
       ],
       "repositories": [
         {
-          "name": "HololensAirplaneViewer",
-          "url": "https://github.com/turbolego/HololensAirplaneViewer"
-        },
-        {
-          "name": "HololensIKEA",
-          "url": "https://github.com/turbolego/HololensIKEA"
-        },
-        {
-          "name": "RullUt",
-          "url": "https://github.com/turbolego/RullUt"
-        },
-        {
-          "name": "Tilgjengelighet-WMS-OpenLayers",
-          "url": "https://github.com/turbolego/Tilgjengelighet-WMS-OpenLayers"
-        },
-        {
-          "name": "iPad2Spotify",
-          "url": "https://github.com/turbolego/iPad2Spotify"
+          "name": "HermesUnchained",
+          "url": "https://github.com/xDweeb/HermesUnchained"
         }
       ]
     },
     {
-      "owner": "criger",
+      "owner": "progrium",
       "commits": 2,
       "location": [
-        61.1529386,
-        8.7876653
+        37.8044557,
+        -122.271356
       ],
       "repositories": [
         {
-          "name": "Agentic-Ground-Rules",
-          "url": "https://github.com/criger/Agentic-Ground-Rules"
+          "name": "authsite",
+          "url": "https://github.com/progrium/authsite"
+        }
+      ]
+    },
+    {
+      "owner": "qualweb",
+      "commits": 2,
+      "location": [
+        38.7077507,
+        -9.1365919
+      ],
+      "repositories": [
+        {
+          "name": "qualweb",
+          "url": "https://github.com/qualweb/qualweb"
+        }
+      ]
+    },
+    {
+      "owner": "kyzdes",
+      "commits": 1,
+      "location": [
+        42.2885656,
+        18.8419505
+      ],
+      "repositories": [
+        {
+          "name": "fang-upgrade",
+          "url": "https://github.com/kyzdes/fang-upgrade"
+        }
+      ]
+    },
+    {
+      "owner": "TurboDevsAS",
+      "commits": 1,
+      "location": [
+        59.9133301,
+        10.7389701
+      ],
+      "repositories": [
+        {
+          "name": "EEGBliss",
+          "url": "https://github.com/TurboDevsAS/EEGBliss"
         }
       ]
     }
