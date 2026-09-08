@@ -21,10 +21,12 @@ None required to view the site. The badge generator optionally uses
 the committed `data.json` is what the preview renders.
 
 ## Badge generator dependencies
-`badge/generate-badge.js` uses `canvas` (node-canvas) and `gif-encoder-2` to
-render an animated rotating GIF. The GitHub Actions workflow installs the
-system libraries canvas needs (libcairo2, libpango, libjpeg, libgif,
-librsvg2). Running the generator locally requires the same system deps.
+`badge/generate-badge.js` uses `canvas` v3 (node-canvas, N-API) and
+`gif-encoder-2` to render an animated rotating GIF. Canvas v3 ships N-API
+prebuilt binaries that work across Node versions (including Node 24) without
+compiling from source. The GitHub Actions workflow still installs the system
+libraries (libcairo2, libpango, libjpeg, libgif, librsvg2) as a build fallback.
+Running the generator locally requires the same system deps.
 
 ## Verifying
 `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/data.json`

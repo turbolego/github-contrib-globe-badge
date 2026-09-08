@@ -7,7 +7,7 @@
     "generate": "node badge/generate-badge.js"
   },
   "dependencies": {
-    "canvas": "^2.11.2",
+    "canvas": "^3.2.3",
     "gif-encoder-2": "^1.0.5"
   }
 }
