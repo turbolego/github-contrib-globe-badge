@@ -480,10 +480,14 @@ async function main() {
   // Persist right away so already-resolved commits are saved even if a
   // later step (geocoding, GIF rendering) fails on this run.
   fs.writeFileSync(COMMIT_CACHE_PATH, JSON.stringify(commitCache, null, 2));
-  const owners = [...counts.entries()].sort((a, b) => b[1].commits - a[1].commits).slice(0, 8);
+  const rankedOwners = [...counts.entries()].sort((a, b) => b[1].commits - a[1].commits);
   console.log(`Found ${total} commits across ${counts.size} owners`);
+  // Walk the full ranking (not just the top 8) so an owner with no usable
+  // location — e.g. a bot or org account — doesn't consume one of the 8
+  // marker slots and hide a lower-ranked but geocodable contributor.
   const markers = [];
-  for (const [owner, stats] of owners) {
+  for (const [owner, stats] of rankedOwners) {
+    if (markers.length >= 8) break;
     const location = await getOwnerLocation(owner).then(geocode);
     console.log(`Located ${owner}: ${location ? location.join(', ') : 'unknown'}`);
     if (location) markers.push({
