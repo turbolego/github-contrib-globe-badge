@@ -557,50 +557,45 @@ function placeLabel(x, y, width, height, placed) {
   return [spot.left, spot.top];
 }
 
-function renderFrame(ctx, centerLonDeg, landGrid, markers, flags, totalCommits, totalPullRequests, scale = 1) {
-  const sx = SIZE * scale;
-  const sCX = CX * scale;
-  const sCY = CY * scale;
-  const sRADIUS = RADIUS * scale;
-
+function renderFrame(ctx, centerLonDeg, landGrid, markers, flags, totalCommits, totalPullRequests) {
   // Background
   ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, sx, sx);
+  ctx.fillRect(0, 0, SIZE, SIZE);
 
   // Shadow
   ctx.fillStyle = 'rgba(156, 163, 175, 0.2)';
   ctx.beginPath();
-  ctx.arc(sCX + 4*scale, sCY + 8*scale, sRADIUS, 0, Math.PI * 2);
+  ctx.arc(CX + 4, CY + 8, RADIUS, 0, Math.PI * 2);
   ctx.fill();
 
   // Ocean
   const grad = ctx.createRadialGradient(
-    sCX - sRADIUS * 0.08, sCY - sRADIUS * 0.15, 0,
-    sCX, sCY, sRADIUS,
+    CX - RADIUS * 0.08, CY - RADIUS * 0.15, 0,
+    CX, CY, RADIUS,
   );
   grad.addColorStop(0, '#fff');
   grad.addColorStop(0.86, '#f3f4f6');
   grad.addColorStop(1, '#d1d5db');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(sCX, sCY, sRADIUS, 0, Math.PI * 2);
+  ctx.arc(CX, CY, RADIUS, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = '#e5e7eb';
-  ctx.lineWidth = 3*scale;
+  ctx.lineWidth = 3;
   ctx.stroke();
 
   // Land dots (clipped to globe)
   ctx.save();
   ctx.beginPath();
-  ctx.arc(sCX, sCY, sRADIUS, 0, Math.PI * 2);
+  ctx.arc(CX, CY, RADIUS, 0, Math.PI * 2);
   ctx.clip();
   ctx.fillStyle = '#343a40';
   ctx.globalAlpha = 0.9;
   for (const [lat, lon] of landGrid) {
-    const p = project(lat, lon, centerLonDeg, scale);
+    const p = project(lat, lon, centerLonDeg);
     if (!p) continue;
     ctx.beginPath();
-    ctx.arc(p[0], p[1], 1.15*scale, 0, Math.PI * 2);
+    ctx.arc(p[0], p[1], 1.15, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -609,15 +604,15 @@ function renderFrame(ctx, centerLonDeg, landGrid, markers, flags, totalCommits, 
   // Markers — fade near the globe edge for smooth rotation
   const visibleMarkers = markers.map((marker) => ({
     marker,
-    position: project(marker.location[0], marker.location[1], centerLonDeg, scale),
+    position: project(marker.location[0], marker.location[1], centerLonDeg),
   })).filter(({ position }) => position && position[2] > 0);
   for (const { position: [x, y, z] } of visibleMarkers) {
     ctx.globalAlpha = Math.min(1, z * 2.5);
     ctx.fillStyle = '#34d399';
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2*scale;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, 6*scale, 0, Math.PI * 2);
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   }
@@ -755,7 +750,12 @@ async function main() {
   for (let i = 0; i < FRAMES; i += 1) {
     // Reverse rotation direction
     const angle = (360 / FRAMES) * (FRAMES - 1 - i);
+    
+    // Scale context for 2x supersampling
+    internalCtx.save();
+    internalCtx.scale(2, 2);
     renderFrame(internalCtx, angle, landGrid, data.markers, flags, data.totalCommits, data.totalPullRequests);
+    internalCtx.restore();
     
     // Scale down from internal size to output size
     const outputCanvas = createCanvas(SIZE, SIZE);
