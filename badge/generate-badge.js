@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import { groupMarkersByCountry } from './group-markers.js';
 
 const SIZE = 520;
+const INTERNAL_SIZE = SIZE * 2;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const RADIUS = 238;
@@ -738,8 +739,8 @@ async function main() {
 
   // Render animated GIF — globe rotates one full turn seamlessly.
   const landGrid = computeLandGrid(geojson);
-  const canvas = createCanvas(SIZE, SIZE);
-  const ctx = canvas.getContext('2d');
+  const internalCanvas = createCanvas(INTERNAL_SIZE, INTERNAL_SIZE);
+  const internalCtx = internalCanvas.getContext('2d');
   const encoder = new GIFEncoder(SIZE, SIZE);
   encoder.setDelay(FRAME_DELAY);
   encoder.setRepeat(0); // loop forever
@@ -749,8 +750,18 @@ async function main() {
   for (let i = 0; i < FRAMES; i += 1) {
     // Reverse rotation direction
     const angle = (360 / FRAMES) * (FRAMES - 1 - i);
-    renderFrame(ctx, angle, landGrid, data.markers, flags, data.totalCommits, data.totalPullRequests);
-    encoder.addFrame(ctx);
+    
+    // Scale context for 2x supersampling
+    internalCtx.save();
+    internalCtx.scale(2, 2);
+    renderFrame(internalCtx, angle, landGrid, data.markers, flags, data.totalCommits, data.totalPullRequests);
+    internalCtx.restore();
+    
+    // Scale down from internal size to output size
+    const outputCanvas = createCanvas(SIZE, SIZE);
+    const outputCtx = outputCanvas.getContext('2d');
+    outputCtx.drawImage(internalCanvas, 0, 0, INTERNAL_SIZE, INTERNAL_SIZE, 0, 0, SIZE, SIZE);
+    encoder.addFrame(outputCtx);
   }
   encoder.finish();
   fs.writeFileSync('badge.gif', Buffer.from(encoder.out.getData()));
