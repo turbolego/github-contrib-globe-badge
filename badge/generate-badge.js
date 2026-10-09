@@ -5,7 +5,8 @@ import GIFEncoder from 'gif-encoder-2';
 import { execSync } from 'child_process';
 import { groupMarkersByCountry } from './group-markers.js';
 
-const SIZE = 1040;
+const SIZE = 520;
+const INTERNAL_SIZE = SIZE * 2;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const RADIUS = 238;
