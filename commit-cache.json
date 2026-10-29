@@ -1004,12 +1004,12 @@
     "resolvedAt": 1793156842722
   },
   "380d0900ee406381ad3d405ee450a85dd03dbf23": {
-    "origin": "diegosouzapw/OmniRoute",
-    "resolvedAt": 1790652095380
+    "origin": "0xzapata/omniroute",
+    "resolvedAt": 1793244795969
   },
   "66017b18966f630f32b8004496e40448c33ed474": {
-    "origin": "diegosouzapw/OmniRoute",
-    "resolvedAt": 1790652095380
+    "origin": "0xzapata/omniroute",
+    "resolvedAt": 1793244795969
   },
   "1e33c6caf879e204a664e85c6cd49f0c9c5e5d31": {
     "origin": "dequelabs/axe-core",
@@ -1210,5 +1210,13 @@
   "912562f48eae789558fd45fca9a7e2f9439bac1c": {
     "origin": "SlowDuplo/Eliaden-Hallkart",
     "resolvedAt": 1792636385400
+  },
+  "7e537f94d085f671345c0ee96b928169b3a5d283": {
+    "origin": "cheaper-inference/OmniRoute",
+    "resolvedAt": 1793244795969
+  },
+  "6da6f18ef66311d32ca3803755075a378bedbfb0": {
+    "origin": "cheaper-inference/OmniRoute",
+    "resolvedAt": 1793244795969
   }
 }
