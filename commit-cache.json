@@ -1218,5 +1218,9 @@
   "6da6f18ef66311d32ca3803755075a378bedbfb0": {
     "origin": "cheaper-inference/OmniRoute",
     "resolvedAt": 1793244795969
+  },
+  "512e008af63cc380bf8ab94413ef4d27988a7345": {
+    "origin": "cheaper-inference/OmniRoute",
+    "resolvedAt": 1793331388212
   }
 }
