@@ -1,6 +1,6 @@
 {
   "user": "turbolego",
-  "generatedAt": "2026-11-26T06:01:22.319Z",
+  "generatedAt": "2026-11-27T05:55:24.648Z",
   "totalCommits": 190,
   "totalPullRequests": 31,
   "markers": [
@@ -149,10 +149,10 @@
       ]
     },
     {
-      "countryCode": "JO",
+      "countryCode": "US",
       "location": [
-        31.1667049,
-        36.941628
+        37.7879363,
+        -122.4075201
       ],
       "commits": 1,
       "pullRequests": 1,
